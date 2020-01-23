@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns="http://interlingua.dfki.de#"
+     xml:base="http://interlingua.dfki.de"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <owl:Ontology rdf:about="http://interlingua.dfki.de"/>
+    
+ 	<owl:NamedIndividual rdf:about="http://interlingua.dfki.de#+CPI">
+        <skos:prefLabel xml:lang="de">Preisindex für die Lebenshaltung</skos:prefLabel>
+        <skos:prefLabel xml:lang="en">CPI</skos:prefLabel>
+        <skos:altLabel xml:lang="en">consumer price index</skos:altLabel>
+        <skos:altLabel xml:lang="en">consumption price index</skos:altLabel>
+        <skos:altLabel xml:lang="en">cost-of-living index</skos:altLabel>
+        <skos:altLabel xml:lang="fr">indice des prix pour la consommation</skos:altLabel>
+        <skos:altLabel xml:lang="fr">indice des prix à la consommation</skos:altLabel>
+        <skos:prefLabel xml:lang="fr">indice du coût de la vie</skos:prefLabel>
+        <skos:altLabel xml:lang="fr">taux du coût de la vie</skos:altLabel>
+        <skos:inScheme rdf:resource="http://interlingua.dfki.de#glossary"/>
+    </owl:NamedIndividual>
+    
+</rdf:RDF>
