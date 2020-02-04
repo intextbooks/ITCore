@@ -438,8 +438,8 @@ public class StructureModel {
 	}
 
 	public void store() {
-		SystemLogger.getInstance().log("persisting structure model");
-		Persistence.getInstance().storeStructureModel(parentBookID, this.hierarchy, this.indexCounter, this.bookDepth, this.model);
+		//SystemLogger.getInstance().log("persisting structure model");
+		//Persistence.getInstance().storeStructureModel(parentBookID, this.hierarchy, this.indexCounter, this.bookDepth, this.model);
 		SystemLogger.getInstance().log("Persisting TEI model");
 		Persistence.getInstance().storeTEIModel(parentBookID, this.teiModel);
 	}

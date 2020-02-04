@@ -210,7 +210,6 @@ public class StructureExtractor {
 			this.listToModel.produceSKOSModelOfBook(bookID,parse.getPageNumbers(), index, parse, type);
 			
 			SystemLogger.getInstance().log("Start: Separate Chapters into segments (segmentExtractor.seperatedChapterExtractions)");
-			
 			/*
 			 * Extracts start and end page, and start and end line inside the page for each sub/chapter.
 			 * It also creates the chapter and paragraphs segments and adds that information to the book model (Book).
@@ -224,8 +223,16 @@ public class StructureExtractor {
 			labelOfStylesCrossCheck(segmentsData, parse.getPages(), parse.getLabelOfStyles());
 			parse.identifyTextBlocksV2(bookID, parse.getLabelOfStyles());
 			
+			SystemLogger.getInstance().log("Start: matching Index Terms to Segments");
+			indexExtractor.matchIndexTermsToSegments(parse.getPagesAsLines(), bookID, index);
+			
+//			for(IndexElement i: this.index) {
+//				System.out.println(i);
+//			}
+//			System.exit(0);
+			
 			SystemLogger.getInstance().log("Start: TEI Model Construction");
-			TEIBuilder tei = new TEIBuilder(bookID, segmentsData, parse.getPages(), segmentExtractor, indexExtractor.getFirstIndexPage(), tocLogical);
+			TEIBuilder tei = new TEIBuilder(bookID, lang, segmentsData, parse.getPages(), segmentExtractor, indexExtractor.getFirstIndexPage(), tocLogical, index, parse.getMetadata(), parse.getLabelOfStyles());
 			tei.construct();
 			cm.setTEIModel(bookID, tei.getModel());
 
@@ -233,7 +240,7 @@ public class StructureExtractor {
 			String allCOntent = extractBookText(segmentsData, parse.getPages(), segmentExtractor, indexExtractor.getFirstIndexPage(), tocLogical);
 			
 			//SystemLogger.getInstance().log("Start: Store Index to DB (indexExtractor.storeIndexToDatabase)");
-			//indexExtractor.storeIndexToDatabase(parse.getPagesAsLines(), bookID, index);
+			indexExtractor.storeIndexToDatabase(parse.getPagesAsLines(), bookID, index);
 			
 //			/*TESTING*/	
 //			for(IndexElement i: index) {
@@ -241,18 +248,6 @@ public class StructureExtractor {
 //			}
 //			System.exit(0);
 //			/*TESTING*/	
-			
-			Set<SKOSConcept> highlightList = new HashSet<SKOSConcept>();
-			if(linkToExternalGlossary) {
-				SystemLogger.getInstance().log("Start: Linking Index to Glossary (IndexGlossaryLinking.linkIndexToGlossary)");
-				//Finds which index terms are directly related with concepts from the ontology
-				//The links are store in the DB (indexMap);
-				//highlightList: list of concepts that don't have a direct link with one index term, so 
-				// terms from the glossary are searched inside the book
-				highlightList = IndexGlossaryLinking.linkIndexToGlossary(bookID, lang, index); 
-				
-				
-			}
 
 			/**
 			 * Method searchWords highlights the words. Color blue is used for index terms in the pages where the terms are introduced 
@@ -469,6 +464,37 @@ public class StructureExtractor {
 
 	/**
 	 * 
+	 * @param presentationID
+	 * @param filePath
+	 * @param lang
+	 * @param type
+	 * @throws EarlyInterruptionException 
+	 * @throws BookWithoutPageNumbersException 
+	 * @throws NullPointerException 
+	 */
+	private void slideExtractor(String presentationID, String filePath, LanguageEnum lang, resourceType type) throws NullPointerException, BookWithoutPageNumbersException{
+
+		FormatExtractor parse;
+		try {
+			this.listToModel = new StructureBuilder(presentationID, type);	
+
+			parse = new FormatExtractor(presentationID, filePath, type);
+//			headingSlideIndexMatching(parse.getSlides());			
+
+			
+			modelOverFlat(presentationID, parse.getTableOfContents(),parse,index, type);
+//			modelOverPresentation(bookID, parse, type);
+			
+		} catch (IOException e) {
+			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
+		} catch (TOCNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * 
 	 * @param bookID
 	 * @param parse
 	 * @param type
@@ -564,7 +590,6 @@ public class StructureExtractor {
 		}
 		return -1;
 	}
-
 
 	private String fillToContent(String contentBuffer, String incomingText){
 		contentBuffer+=incomingText;	

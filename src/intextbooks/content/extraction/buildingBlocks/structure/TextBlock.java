@@ -161,6 +161,10 @@ public class TextBlock {
 		line.extractText();
 		return line;
 	}
+	
+	public List<Line> getLines(){
+		return this.lines;
+	}
 
 	public boolean isSpecial() {
 		return special;

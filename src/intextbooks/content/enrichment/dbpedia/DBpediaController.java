@@ -206,12 +206,16 @@ public class DBpediaController {
 				if(!lang.equals("en")) {
 					continue;
 				}
-				System.out.println("CONCEPT: " + concept.getConceptName() + " L: " + lang);
+//				/*TESTING*/
+//				SystemLogger.getInstance().debug("CONCEPT: " + concept.getConceptName() + " L: " + lang);
+//				/*TESTING*/
 				
 				//each LABEl for each LANG-CONCEPT
-				if(concept.getAllLabels(langEnum).size() > 1) {
-					System.out.println("Testing: " + concept.getConceptName() + " | several labels: " + concept.getAllLabels(langEnum).size());
-				}
+//				/*TESTING*/
+//				if(concept.getAllLabels(langEnum).size() > 1) {
+//					SystemLogger.getInstance().debug("Testing: " + concept.getConceptName() + " | several labels: " + concept.getAllLabels(langEnum).size());
+//				}
+//				/*TESTING*/
 				for(String term: concept.getAllLabels(langEnum)) {
 					//Only for English
 					//TODO change to all langs

@@ -82,13 +82,17 @@ import java.util.Date;
 
 public class Persistence {
 	private static Persistence instance = null;
+	
+	
 	private static Disc disc;
 	private static Database db;
+	
 	
 	
 	protected Persistence() {
 		disc = Disc.getInstance();
 		db = Database.getInstance();
+		
 	}
 	
 	public static Persistence getInstance() {
@@ -479,7 +483,6 @@ public class Persistence {
 	 ****************** ONTOLOGY OPERATIONS ******************
 	 ********************************************************* 
 	 */
-
     
     public int getOntologyVersion() throws SQLException {
 		return db.getOntologyVersion();

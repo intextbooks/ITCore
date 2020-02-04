@@ -67,7 +67,6 @@ public class ColumnExtractor {
 			totalWidth += c.getBBWidth();
 		}
 		float averageWidth = totalWidth / list.size();
-		System.out.println("average width : " + averageWidth);
 		
 		//check lines
 		int currentLineIndex = 0;
@@ -161,9 +160,7 @@ public class ColumnExtractor {
 //		}
 		
 		
-		if(pageLines.size() > pageLines.size() / 2) {
-			System.out.println(">> COLUMN!");
-			
+		if(pageLines.size() > pageLines.size() / 2) {	
 			//create segments
 			List<ColumnSegment> segments = new ArrayList<ColumnSegment>();
 			Float segmentStart = startLeft;
@@ -234,7 +231,6 @@ public class ColumnExtractor {
 				return true;
 			}
 		} else {
-			System.out.println(">> NO column!");
 			return false;
 		}
 	}

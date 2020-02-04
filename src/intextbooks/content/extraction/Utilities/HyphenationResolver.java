@@ -249,6 +249,22 @@ public class HyphenationResolver {
 		return text.toString();
 	}
 	
+	public boolean isLineBroken(Line line1, Line line2) {
+		if(line1.size() > 0 && line2.size() > 0) {
+			String word = line1.getWordAt(line1.size() - 1).getText();
+			if(word.length() > 0 && word.charAt(word.length()-1) == '-') {
+				String wholeWord = word.substring(0, word.length()-1) + hyphen + line2.getWordAt(0).getText();
+				if(hyphenatedWord(wholeWord)) {
+					return true;
+				}
+				else {
+					return false;
+				}
+			}
+		}
+		return false;
+	}
+	
 	
 
 	public static void main(String[] args) throws FileNotFoundException, IOException, TexParserException {

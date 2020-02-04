@@ -249,6 +249,22 @@ public class BoundSimilarity {
 		return Pair.of(startX, endX);
 	}
 	
+	public static Pair<Float, Float> learnLineEdges(List<Line> lines, int bodyFontSize){
+		Float startX = 9999f;
+		Float endX = 0f;
+		for(Line l: lines) {
+			if(l.size() > 0 && l.getFontSize() == bodyFontSize) {
+				if(l.getWordAt(0).getStartPositionX() < startX) {
+					startX = l.getWordAt(0).getStartPositionX();
+				}
+				if(l.getWordAt(0).getEndPositionX() > endX) {
+					endX = l.getWordAt(0).getEndPositionX();
+				}
+			}
+		}
+		return Pair.of(startX, endX);
+	}
+	
 	public static Float learnLineSpacing(Vector <Page> pages, int bodyFontSize){
 //		/*TESTING*/
 //		System.out.println("# pages: " + pages);
@@ -277,6 +293,44 @@ public class BoundSimilarity {
 				}
 			}
 		}
+		Float lineSpacing = 0f;
+		Integer biggestFreq = 0;
+		for(Entry<Float, Integer> e: freq.entrySet()) {
+			if(e.getValue() > biggestFreq) {
+				biggestFreq = e.getValue();
+				lineSpacing = e.getKey();
+			}
+		}
+		
+		return lineSpacing;
+	}
+	
+	public static Float learnLineSpacing(List<Line> lines, int bodyFontSize){
+//		/*TESTING*/
+//		System.out.println("# pages: " + pages);
+//		System.out.println("# pages size: " + pages.size());
+//		System.out.println("# lookupRange: " + lookupRange);
+//		System.out.println("# starting: " + pages.size()/2);
+//		/*TESTING*/
+
+		HashMap<Float, Integer> freq = new HashMap<Float, Integer>();
+
+		for(int l=1; l < lines.size(); l++) {
+			Line prev = lines.get(l-1);
+			Line curr = lines.get(l);
+			int prevFS = FormatExtractor.getLineFontSize(prev);
+			int currFS = FormatExtractor.getLineFontSize(curr);
+			if(prevFS == currFS && currFS == bodyFontSize) {
+				float diff = Math.round(curr.getPositionY() - prev.getPositionY());
+				Integer locFreq = freq.get(diff);
+				if(locFreq == null)
+					locFreq = 0;
+				locFreq++;
+				freq.put(diff, locFreq);
+			}
+			
+		}
+			
 		Float lineSpacing = 0f;
 		Integer biggestFreq = 0;
 		for(Entry<Float, Integer> e: freq.entrySet()) {

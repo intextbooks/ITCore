@@ -157,12 +157,15 @@ public class Disc {
 			transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
 			DOMSource domSource = new DOMSource(document);
 			File file = new File (Configuration.getInstance().getModelFolder()+parentBook+File.separator, "teiModel.xml");
-			file.setReadable(true, false);
-			file.setExecutable(true, false);
+			
 			StreamResult streamResult = new StreamResult(file);
 			transformer.transform(domSource, streamResult);
+			file = new File (Configuration.getInstance().getModelFolder()+parentBook+File.separator, "teiModel.xml");
+			file.setReadable(true, false);
+			file.setExecutable(true, false);	
 		} catch (Exception e) {
 			e.printStackTrace();
+			SystemLogger.getInstance().log("Error persisting TEI model: " + e.getMessage());
 		}
 	}
 

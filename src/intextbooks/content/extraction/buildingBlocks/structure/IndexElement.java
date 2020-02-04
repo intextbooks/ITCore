@@ -63,6 +63,14 @@ public class IndexElement {
 		else
 			return key.replace(" <> ", " ");
 	}
+	
+	public String getLastPart() {
+		if(parts.size() > 1) {
+			return parts.get(parts.size()-1);
+		} else {
+			return parts.get(0);
+		}
+	}
 
 	public void setKey(String key) {
 		this.key = key;

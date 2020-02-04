@@ -856,6 +856,8 @@ public class Database {
 		return result;
 	}
 	
+	
+	
 	synchronized public void addIndexElement(String bookID, String indexName,List<Integer> segments, List<Integer> indices, List<Integer> pages, boolean artificial){
 		try {
 			int id = addIndexCatalogEntry(bookID, null, indexName, indexName, true, artificial);

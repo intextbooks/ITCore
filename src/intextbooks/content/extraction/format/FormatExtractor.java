@@ -1,7 +1,11 @@
 package intextbooks.content.extraction.format;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -21,6 +25,10 @@ import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import intextbooks.RandomAccessToElements;
 import intextbooks.SystemLogger;
@@ -50,6 +58,7 @@ import intextbooks.exceptions.BookWithoutPageNumbersException;
 import intextbooks.exceptions.EarlyInterruptionException;
 import intextbooks.exceptions.TOCNotFoundException;
 import intextbooks.ontologie.LanguageEnum;
+import intextbooks.tools.utility.SimpleHTTPRequest;
 
 
 
@@ -74,6 +83,7 @@ public class FormatExtractor{
 	private Vector <Page> pagesContentOrder;
 	private Vector <Slide> slides;
 	FormattingDictionary lOS;
+	Map<String,String> metadata = new HashMap<String,String>();
 	
 	private	List <TOC> toc = new Vector <TOC>(); 
 	private List<BookSectionResource> bookContent;
@@ -96,6 +106,8 @@ public class FormatExtractor{
 	private Map<String, PDFont> fonts = new HashMap<String, PDFont>();
 	
 	private boolean centerAlignmentValid = false;
+	
+	private final String OpenLibraryISBNService = "https://openlibrary.org/api/books?jscmd=data&format=json&bibkeys=ISBN:";
 
 	public FormatExtractor(String resourceID, String filePath, resourceType type) throws IOException, TOCNotFoundException, NullPointerException, BookWithoutPageNumbersException {
 	
@@ -180,6 +192,11 @@ public class FormatExtractor{
 		this.pageWidth = textExtractor.getWidth();
 		
 		SystemLogger.getInstance().log("Resource text process ended");
+		
+		//get metadata
+		SystemLogger.getInstance().log("Getting metadata");
+		obtainMetadata();
+		SystemLogger.getInstance().log("Getting metadata ended");	
 	
 		//removes a recurrent line at the top or bottom of each page
 		SystemLogger.getInstance().log("Removing repeating lines through pages started");
@@ -1169,6 +1186,73 @@ public class FormatExtractor{
 		this.cm.setPageNumbersOfBook(bookID, pageNumbers);
 	}
 	
+	private void obtainMetadata() {
+		String ISBN = null;
+		int lookupRange = pages.size() > 6 ? 6: pages.size();
+		
+		//tries to remove a repeating line at the beginning of each page
+		pages:
+		for(short i=0; i < lookupRange; i++){
+			if(pages.get(i) != null) {
+							
+				for(Line line: pages.get(i).getLines()) {
+					for(int j = 0; j < line.size(); j++) {
+						if(line.getWordAt(j).getText().equals("ISBN")) {
+							if((j+1) <  line.size()) {
+								if(line.getWordAt(j+1).getText().matches(StringOperations.getRegexISBN())) {
+									
+									String url = OpenLibraryISBNService + line.getWordAt(j+1).getText();
+									String jsonString = SimpleHTTPRequest.doGetRequest(url);
+									System.out.println(jsonString);
+									JSONParser parser = new JSONParser();
+									try {
+										JSONObject obj = (JSONObject) parser.parse(jsonString);
+										if(obj.values().size() == 1 ) {
+											JSONObject map = (JSONObject) obj.values().toArray()[0];
+											//title
+											metadata.put("title", (String) map.get("title"));
+											metadata.put("subtitle", (String) map.get("subtitle"));
+											metadata.put("publish_date", (String) map.get("publish_date"));
+											Object authorsObj = map.get("authors");
+											if(authorsObj == null) {
+												metadata.put("authors", (String) map.get("by_statement"));
+											} else {
+												JSONArray  authorsArray = (JSONArray) authorsObj;
+												Iterator<Object> authorsIterator = authorsArray.iterator();
+												String authors = "";
+												while(authorsIterator.hasNext()) {
+													JSONObject authorObject = (JSONObject) authorsIterator.next();
+													authors += authorObject.get("name") + "|";
+												}
+												metadata.put("authors", authors);
+											}
+											Object publishersObj = map.get("publishers");
+											
+											if(publishersObj != null) {
+												JSONArray  publishersArray = (JSONArray)publishersObj;
+												Iterator<Object> publishersIterator = publishersArray.iterator();
+												String publisher = "";
+												while(publishersIterator.hasNext()) {
+													JSONObject publisherObject = (JSONObject) publishersIterator.next();
+													publisher += publisherObject.get("name") + " ";
+												}
+												metadata.put("publisher", publisher.trim());
+											}
+										}
+									} catch (ParseException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+									break pages;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
 	/**
 	 * On chapter beginnings sometimes page number is not printed
 	 * to make up for it, here we compare three pages at a time
@@ -1587,6 +1671,8 @@ public class FormatExtractor{
 		
 		///for(int i=firstChapterStartIndex; i<27; i++){
 		for(int i=firstChapterStartIndex; i<pages.size(); i++){
+			if(pages.get(i) == null)
+				continue;
 			for(int l= 0; l <  pages.get(i).size(); l++) {
 				currentLine =   pages.get(i).getLineAt(l);
 				currentLineFontSize = getLineFontSize(currentLine);
@@ -1625,6 +1711,70 @@ public class FormatExtractor{
 			}
 			
 		}
+		return textBlocks;
+	}
+	
+	private static List<TextBlock> getTextBlocksV2(List<Line> lines, FormattingDictionary fD, Pair<Float, Float> lineEdges, float lineSpacing) {
+		List<TextBlock> textBlocks = new ArrayList<TextBlock>();
+		TextBlock currentTextBlock = new TextBlock();
+		TextBlock.setFormattingDictionary(fD);
+		textBlocks.add(currentTextBlock);
+		
+		int bodyFontSize = fD.getBodyFontSize();
+		Line previousLine = null;
+		Line currentLine = null;
+		int previousLineFontSize = 0;
+		int currentLineFontSize = 0;
+		
+		previousLine = lines.get(0);
+		previousLineFontSize = getLineFontSize(previousLine);
+		FormattingContainer fC = fD.findRole(previousLine.getFCKeySum());
+		if(fC != null) {
+			currentTextBlock.setRoleLabel(fC.getRoleLabel());
+			currentTextBlock.setTitleLevel(fC.getTitleLevel());
+		} else {
+			currentTextBlock.setRoleLabel(RoleLabel.Body);
+		}
+	
+	
+		for(int l= 0; l <  lines.size(); l++) {
+			currentLine =   lines.get(l);
+			currentLineFontSize = getLineFontSize(currentLine);
+			boolean lineSpacingIsBigger = Math.round((currentLine.getPositionY() - previousLine.getPositionY())) < 0  || Math.round((currentLine.getPositionY() - previousLine.getPositionY())) > lineSpacing;
+			
+			
+			if(fD.sameRole(previousLine, currentLine) || 
+					previousLine.getFCKeySum().equals(currentLine.getFCKeySum()) ||
+					previousLineFontSize == currentLineFontSize ||
+					currentLineFontSize <= bodyFontSize && previousLineFontSize <= bodyFontSize) {
+				
+				if(currentLineFontSize <= bodyFontSize && previousLineFontSize <= bodyFontSize && lineSpacingIsBigger) {
+					currentTextBlock = new TextBlock();
+					textBlocks.add(currentTextBlock);
+					currentTextBlock.addLine(currentLine);
+					currentTextBlock.setRoleLabel(RoleLabel.Body);
+				} else {
+					currentTextBlock.addLine(currentLine);
+				}
+				
+				
+			} else {
+				currentTextBlock = new TextBlock();
+				textBlocks.add(currentTextBlock);
+				currentTextBlock.addLine(currentLine);
+				FormattingContainer fC2 = fD.findRole(currentLine.getFCKeySum());
+				if(fC2 != null) {
+					currentTextBlock.setRoleLabel(fC2.getRoleLabel());
+					currentTextBlock.setTitleLevel(fC2.getTitleLevel());
+				} else {
+					currentTextBlock.setRoleLabel(RoleLabel.Body);
+				}
+			}
+			previousLine = currentLine;
+			previousLineFontSize = currentLineFontSize;
+		}
+			
+		
 		return textBlocks;
 	}
 	
@@ -1714,6 +1864,21 @@ public class FormatExtractor{
 //			System.out.println(block.extractText());
 //		}
 		return null;
+	}
+	
+	public static List<TextBlock> identifyTextBlocksV2(FormattingDictionary fD, List<Line> lines) {
+		Pair<Float, Float> lineEdges = BoundSimilarity.learnLineEdges(lines, fD.getBodyFontSize());
+		Float lineSpacing = BoundSimilarity.learnLineSpacing(lines, fD.getBodyFontSize());
+		List<TextBlock> blocks = new ArrayList<TextBlock>();
+		if(lines.size() > 0) {
+			blocks = getTextBlocksV2(lines, fD, lineEdges, lineSpacing);
+		} 
+
+//		for(TextBlock block: blocks) {
+//			System.out.println(">> " + block.getRoleLabelString() + " fs: " + block.getFontSize());
+//			System.out.println(block.extractText());
+//		}
+		return blocks;
 	}
 	
 	private List<BookSectionResource> identifyTextBlocks(String bookID, FormattingDictionary fD) {
@@ -2287,6 +2452,10 @@ public class FormatExtractor{
 	
 	public List<Integer> getTOCPages(){
 		return this.tocPages;
+	}
+	
+	public Map<String,String> getMetadata(){
+		return this.metadata;
 	}
 	
 }

@@ -749,12 +749,10 @@ public class SegmentExtractor {
 		}
 		
 		if(WordListCheck.isExerciseSection(pageTitle) || WordListCheck.isAppendixSection(pageTitle) || WordListCheck.containsIndex(pageTitle)) {
-			System.out.println("\t @@@@ check columns ");
 			//SystemLogger.getInstance().setDebug(true);
 			ColumnExtractor columnExtractor = new ColumnExtractor(lines);
 			boolean withColumns = columnExtractor.identifyColumns();
 			if(withColumns) {
-				System.out.println("\t COLUMNS! ");
 				lines = columnExtractor.getLines(pageBreaks);
 			} 
 			SystemLogger.getInstance().setDebug(false);

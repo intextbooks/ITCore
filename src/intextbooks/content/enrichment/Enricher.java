@@ -1,7 +1,5 @@
 package intextbooks.content.enrichment;
 
-import java.io.FileInputStream;
-import java.io.ObjectInputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -107,9 +105,7 @@ public class Enricher {
 	}
 	
 	public void enrichWithDBpedia(String glossaryName) throws EnrichedModelWIthProblems, Exception {
-		
 		this.extractGlossary();
-		
 		enrichWithDBpediaProcess();
 	}
 	
@@ -177,6 +173,8 @@ public class Enricher {
 		
 		//adding selectedResources to data
 		data.setSelectedResources(finalResourcesForConcepts);
+		
+		//ToolBox.storeObject(data, this.bookID + "_enrichmentData");
 		
 		for(String concept: seedDomainEntities.keySet()) {
 			Map<LanguageEnum, Map<String,Pair<Set<String>,String>>> map = seedDomainEntities.get(concept);

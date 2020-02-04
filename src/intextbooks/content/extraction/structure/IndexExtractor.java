@@ -2043,6 +2043,21 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 		SystemLogger.getInstance().log("Storing Index to Database");
 
 		for(int i = 0 ; i<index.size(); i++){
+				index.get(i).storeInDB(bookID);
+		}
+
+		SystemLogger.getInstance().log("Index Storage End");
+	}
+	
+	public void matchIndexTermsToSegments(ArrayList<List<Line>> arrayList, String bookID, List<IndexElement> index){
+		
+//		/*TESTING*/
+//		System.out.println("######################## index");
+//		for(IndexTerm it : index) {
+//			System.out.println("> " + it.getID());
+//		}
+//		/*TESTING*/
+		for(int i = 0 ; i<index.size(); i++){
 
 			List<Integer> segments = null;
 
@@ -2068,12 +2083,8 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 				segments = new ArrayList<Integer> ();
 				segments.add(-1);
 			}
-			
-				index.get(i).setPageSegments(segments);
-				index.get(i).storeInDB(bookID);
+			index.get(i).setPageSegments(segments);
 		}
-
-		SystemLogger.getInstance().log("Index Storage End");
 	}
 
 	/**
@@ -2085,21 +2096,21 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 	 * @return
 	 */
 
-	public static List<Integer> segmentOfIndex(ArrayList<List<Line>> arrayList,  String bookID, String indexID, List<Integer> pageIndicies){
+	public static List<Integer> segmentOfIndex(ArrayList<List<Line>> arrayList,  String bookID, String indexID, List<Integer> pageIndices){
 		/*TESTING*/
 		SystemLogger.getInstance().debug("====================segmentOfIndex=========================");
 		SystemLogger.getInstance().debug(">>>indexID: " + indexID);
-		SystemLogger.getInstance().debug(">>>pageIndices: " + pageIndicies);
-		SystemLogger.getInstance().debug(">>>pageIndicesSize: " + pageIndicies.size());
+		SystemLogger.getInstance().debug(">>>pageIndices: " + pageIndices);
+		SystemLogger.getInstance().debug(">>>pageIndicesSize: " + pageIndices.size());
 		/*TESTING*/
 		
 		List<Integer> correspondingSegments = new ArrayList<Integer> ();
 		//correspondingSegments.add(1);
 		
-		if(pageIndicies.get(0)!=-1){
-			for(int i = 0; i<pageIndicies.size(); i++){
+		if(pageIndices.get(0)!=-1){
+			for(int i = 0; i<pageIndices.size(); i++){
 				SystemLogger.getInstance().debug("% page indice: " + i);
-				int pageNumber = pageIndicies.get(i);
+				int pageNumber = pageIndices.get(i);
 				SystemLogger.getInstance().debug("% page number: " + pageNumber);
 				//If the page number is wrong (-1), skip it
 				if (pageNumber == -1) {

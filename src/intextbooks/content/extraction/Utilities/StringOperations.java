@@ -16,6 +16,7 @@ public class StringOperations {
 	private static final String regexRomanNumberRange = "^(X?X?X?)(IX|IV|V?I?I?I?)([–]|[-])(X?X?X?)(IX|IV|V?I?I?I?)$";
 	private static final String regexNoteNumber  = "[0-9]+[nN]{1}[0-9]*";
 	private static final String regexNoteParcialNumber  = "[0-9]+[nN]{1}";
+	private static final String regexISBN =  "^(?=[0-9X]{10}$|(?=(?:[0-9]+[-●]){3})[-●0-9X]{13}$|97[89][0-9]{10}$|(?=(?:[0-9]+[-●]){4})[-●0-9]{17}$)(?:97[89][-●]?)?[0-9]{1,5}[-●]?[0-9]+[-●]?[0-9]+[-●]?[0-9X]$";
 	
 	public static String getRegexNumber() {
 		return regexNumber;
@@ -48,6 +49,10 @@ public class StringOperations {
     public static String getRegexNoteParcialNumber() {
 		return regexNoteParcialNumber;
 	}
+    
+    public static String getRegexISBN() {
+    	return regexISBN;
+    }
     
     public static String cleanStringForRegex(String text) {
     	return text.replace(",", "").replace(";", "").replace(".", "").replace(" ", "").toUpperCase();

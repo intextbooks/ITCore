@@ -280,11 +280,6 @@ public class StructureBuilder {
 		 * Creates a SKOS:Concept of type 'page' for each physical page of the book
 		 */
 		createPageResources(bookID, pageNumbers, type);
-		
-		/*
-		 * Creates a SKOS:Concept of type 'index term' for each physical index term of the book
-		 */
-		createIndexTerms(bookID, indexElements);
 
 		try {
 			/*
@@ -297,21 +292,7 @@ public class StructureBuilder {
 		}
 	}
 
-	/**
-	 * 
-	 * @return
-	 */
-//	private SKOSDataset getGlossaryontology(){
-//		
-//		 try {
-//			SKOSDataset  ds = Persistence.getInstance().loadOntology();
-//			return ds;
-//		} catch (SKOSCreationException e) {
-//			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
-//		}
-//		 
-//		return null;		 
-//	}
+
 	
 	/**
 	 * 
@@ -337,126 +318,9 @@ public class StructureBuilder {
 
 
  
-//	public void updateSKOSIndexTerms(String bookID, List<IndexElement> indexElements){
-//
-//		SKOSConcept concept;
-//		SKOSEntityAssertion indexEntity;
-//		SKOSConcept glossaryConcept;
-//		SKOSChange change;
-//		SKOSObjectRelationAssertion propertyAssertion;
-//
-//		SKOSDataset glossaryDataset  =  getGlossaryontology();
-//		Set<SKOSConcept> concepts = getGlossaryConcepts(glossaryDataset);
-//		
-//		String termURI;
-//
-//		for(int i = 0; i < indexElements.size(); i++){
-//
-//			glossaryConcept = getRelatedGlossaryTerm(indexElements.get(i).getKey(), concepts);
-//			
-//			termURI = this.baseTermURI+String.valueOf(indexElements.get(i).getKey());
-//			
-//			try {
-//				termURI = URLEncoder.encode(termURI, "UTF-8");
-//			} catch (UnsupportedEncodingException e1) {
-//				e1.printStackTrace();
-//			}
-//			
-//			concept = df.getSKOSConcept(URI.create(termURI.replaceAll(" ", "+")));
-//			
-//			try {		
-//				
-//				if(glossaryConcept!= null){
-//					
-//					propertyAssertion = df.getSKOSObjectRelationAssertion(concept,this.isRelated,glossaryConcept);
-//					change = new AddAssertion(this.dataset, propertyAssertion);
-//					this.manager.applyChange(change);	
-//				}
-//			} catch (SKOSChangeException e) {
-//				e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
-//			}
-//		}
-//	}
 	
-	/**
-	 * Creates a SKOS:Concept of type 'index term' for each physical index term of the book
-	 * 
-	 * @param bookID
-	 * @param indexTerms
-	 */
-	private void createIndexTerms(String bookID, List<IndexElement> indexElements){
-
-		SKOSConcept concept;
-		SKOSEntityAssertion indexEntity;
-		SKOSConcept glossaryConcept;
-		SKOSChange change;
-		SKOSObjectRelationAssertion propertyAssertion;
-
-		SKOSDataset glossaryDataset  = null;
-		Set<SKOSConcept> concepts = getGlossaryConcepts(glossaryDataset);
-		
-		String termURI;
-
-		for(int i = 0; i < indexElements.size(); i++){
-			
-			termURI = this.baseTermURI+String.valueOf(indexElements.get(i).getKey());
-			
-			try {
-				termURI = URLEncoder.encode(termURI, "UTF-8");
-			} catch (UnsupportedEncodingException e1) {
-				e1.printStackTrace();
-			}
-			
-			concept = df.getSKOSConcept(URI.create(termURI.replaceAll(" ", "+")));
-			
-			try {		
-				
-				propertyAssertion = df.getSKOSObjectRelationAssertion(concept, inScheme, indexScheme);	
-				change = new  AddAssertion(this.dataset, propertyAssertion);
-				this.manager.applyChange(change);
-
-				indexEntity = df.getSKOSEntityAssertion(concept);
-				change = new AddAssertion(this.dataset, indexEntity);
-				this.manager.applyChange(change);
-				
-				//add reading label
-				if(indexElements.get(i).isFullLabel()) {
-					SKOSAnnotation prefLabel = df.getSKOSAnnotation(df.getSKOSPrefLabelProperty().getURI(), indexElements.get(i).getLabel(), this.cm.getBookLanguage(bookID).getShortendLanguageCode());
-					SKOSAnnotationAssertion prefAssertion = df.getSKOSAnnotationAssertion(concept, prefLabel);
-					change = new AddAssertion(this.dataset, prefAssertion);
-					this.manager.applyChange(change);
-				}				
-
-				if(indexElements.get(i).getAPageNumber(0)!=-1){
-
-					Iterator<Integer> iterator = indexElements.get(i).getPageNumbers().iterator();
-
-					while(iterator.hasNext()){
-
-						int pageNum = iterator.next();
-
-						SKOSConcept pageResource = this.pageMap.get(pageNum);
-
-						if(pageResource == null)
-							pageResource = this.pageMap.get(pageNum+1);
-						
-						if (pageResource != null) {
-
-							propertyAssertion = df.getSKOSObjectRelationAssertion(concept,this.isRelated,pageResource);
-							change = new AddAssertion(this.dataset, propertyAssertion);
-							this.manager.applyChange(change);
 	
-							propertyAssertion = df.getSKOSObjectRelationAssertion(pageResource,this.isRelated,concept);
-							change = new AddAssertion(this.dataset, propertyAssertion);
-							this.manager.applyChange(change);						
-						}
-					}	
-				}
-			} catch (SKOSChangeException e) {
-				e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
-			}
-		}
-	}
+	
 	
 	/**
 	 * 

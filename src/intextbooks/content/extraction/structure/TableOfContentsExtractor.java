@@ -880,10 +880,6 @@ public class TableOfContentsExtractor {
 		float topBoundaryNormalized = maxWordsBoundary - start;
 		float lineLimitNormalized = last - start;
 		float lineLimiteP = lineLimitNormalized / topBoundaryNormalized;
-		System.out.println("start:  " + start);
-		System.out.println("last:  " + last);
-		System.out.println("lineLimiteP: " + lineLimiteP);
-		System.out.println("LLLLL: " + line.getText()  + " V: " + lineLimiteP);
 		if(lineLimiteP <= 0.6) {
 			return false;
 		} else {

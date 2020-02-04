@@ -18,10 +18,10 @@
 		<silentLogging>true</silentLogging>
 		<ontologyNS>http://intextbooks.science.uu.nl/models/ontologies/intextbooks.rdf#</ontologyNS>
 	<!-- DATABASE -->
-		<database>jdbc:mysql://127.0.0.1:3306/intextbooks_db?characterEncoding=utf8&amp;useSSL=false</database>
-		<dbPasswd></dbPasswd>
-		<dbUser></dbUser>
-		<mailPasswd></mailPasswd>
+		<database>jdbc:mysql://localhost:3306/intextbooks_db?characterEncoding=utf8&amp;useSSL=false</database>
+		<dbPasswd>sa!n4vvD!qJT3X</dbPasswd>
+		<dbUser>intextbooks</dbUser>
+		<mailPasswd>sa!n4vv!qJT3X</mailPasswd>
 	<!-- KB Enrichment -->
 		<numberOfJumps>3</numberOfJumps>
 		<similarityScoreThreshold>0.5</similarityScoreThreshold>

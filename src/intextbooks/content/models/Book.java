@@ -199,7 +199,7 @@ public class Book {
 
 	
 	private void storeModels(){
-		this.formatModel.store();
+		//this.formatModel.store();
 		this.structureModel.store();
 	}
 	
@@ -472,7 +472,12 @@ public class Book {
 		return this.structureModel.getParagraphText(index);
 	}
 	
+	/*********************************************************************
+	 ********************** SEMANTIC METHODS 
+	  ***************************
+	 *********************************************************************/
 	
+
 	/*********************************************************************
 	 ********************** LISTING METHODS 
 	  ***************************

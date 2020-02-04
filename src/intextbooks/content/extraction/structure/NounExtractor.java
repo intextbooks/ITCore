@@ -22,8 +22,7 @@ public class NounExtractor {
 			pythonScriptPath = Configuration.getInstance().getPythonScriptPath();
 			SystemLogger.getInstance().log("pythonScriptPath ok");
 			//run Python script
-			try {
-				
+			try {		
 				this.jep = new Jep();
 			} catch (Exception e) {
 				SystemLogger.getInstance().log("ERROR NOUN EXTRACTION " + e.getMessage());

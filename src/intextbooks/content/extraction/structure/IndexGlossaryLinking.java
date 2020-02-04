@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -163,196 +164,13 @@ public class IndexGlossaryLinking {
 	}
 
 	
-	/**
-	 * Links index terms to glossary concepts.
-	 * It returns a list of all the glossary terms that were not identified in the index terms. 
-	 * 
-	 * @param bookID
-	 * @param lang
-	 * @param indexTerms
-	 * @return
-	 * @throws UnsupportedEncodingException 
-	 */
 	
-	public static Set<SKOSConcept> linkIndexToGlossary(String bookID, LanguageEnum lang, List<IndexElement> indexElements) throws UnsupportedEncodingException{
-
-		SystemLogger.getInstance().log("Linking Index to Glossary Terms");	
-	
-		SKOSDataset ds = null;
-		
-		Set<SKOSConcept>concepts = getGlossaryConcepts(ds);
-		
-		boolean match = false;
-		int directHitCount =0;
-		int hierarchicalHitCount =0;
-		int hitCount =0;
-		
-		SystemLogger.getInstance().log("Glossary size : " + concepts.size());
-		
-		double currentMatchRatio, highestmatchRatio = 0;
-		
-		SKOSConcept conceptToLink = null;
-		
-		List<SKOSConcept> removeFromConcepts = new ArrayList<SKOSConcept> ();
-		
-		String glossaryTerm = null;
-
-		for(int i = 0; i < indexElements.size(); i++){
-			
-//			/*TESTING*/
-//			if(indexTerms.get(i).getID().equals("Diagrama(s) de dispersión") || indexTerms.get(i).getID().equals("Estimador eficiente") || indexTerms.get(i).getID().equals("Distribución t")) {
-//				System.out.println(indexTerms.get(i).getID());
-//			}
-//			/*TESTING*/
-			
-			glossaryTerm = null;
-			conceptToLink = null;
-			
-			highestmatchRatio = 0.9;
-			
-			Iterator<SKOSConcept> iterator = concepts.iterator();
-						
-			while(iterator.hasNext()){
-				
-				match = false;
-				
-				SKOSConcept concept = iterator.next();
-
-				for (SKOSAnnotation anno : concept.getSKOSAnnotationsByURI(ds, SKOSRDFVocabulary.PREFLABEL.getURI())) {
-					
-					SKOSUntypedLiteral lit = anno.getAnnotationValueAsConstant().getAsSKOSUntypedLiteral();
-										
-					if(lit.getLang().equals(lang.getShortendLanguageCode().toString())){
-					
-						String term = lit.getLiteral();	
-						String originalTerm = term;
-						term = term.replaceAll("-", " ");
-					
-						
-						//old way
-					    //currentMatchRatio = searchForMatchingWords(Stemming.stemText(lang, term).split(" |-"),Stemming.stemText(lang, indexTerms.get(i).getID()).split(" ") );
-						//new way
-						term = preProcessParentesis(term);
-						String id = null;
-						String originalId = null;
-						if(indexElements.get(i).isFullLabel()) {
-							id = preProcessParentesis(indexElements.get(i).getLabel());
-							originalId = indexElements.get(i).getLabel();
-						} else {
-							id = preProcessParentesis(indexElements.get(i).getNormalizedKey());
-							originalId= indexElements.get(i).getNormalizedKey();
-						}
-						
-						
-						if(originalId != null && originalId.equalsIgnoreCase(originalTerm)) {
-							currentMatchRatio = 1;
-						} else {
-							currentMatchRatio = searchForMatchingWords(getStemmedStringArray(term.split(" |-"), lang, term),getStemmedStringArray(id.split(" "),lang, indexElements.get(i).getNormalizedKey()));
-						}
-						
-						if(currentMatchRatio > highestmatchRatio ){
-							highestmatchRatio = currentMatchRatio;						
-							match = true;
-							conceptToLink = concept;
-						}						
-					}					
-				}
-				
-				for (SKOSAnnotation anno : concept.getSKOSAnnotationsByURI(ds, SKOSRDFVocabulary.ALTLABEL.getURI())) {
-
-					SKOSUntypedLiteral lit = anno.getAnnotationValueAsConstant().getAsSKOSUntypedLiteral();
-					
-					if(lit.getLang().equals(lang.getShortendLanguageCode().toString())){
-						
-						String term = lit.getLiteral();
-						String originalTerm = term;
-						term = term.replaceAll("-", " ");
-						
-						//old way
-						//currentMatchRatio = searchForMatchingWords(Stemming.stemText(lang, term).split(" |-"),Stemming.stemText(lang, indexTerms.get(i).getID()).split(" ") );
-						//new way
-						term = preProcessParentesis(term);
-						String id = null;
-						String originalId = null;
-						if(indexElements.get(i).isFullLabel()) {
-							id = preProcessParentesis(indexElements.get(i).getLabel());
-							originalId = indexElements.get(i).getLabel();
-						} else {
-							id = preProcessParentesis(indexElements.get(i).getNormalizedKey());
-							originalId= indexElements.get(i).getNormalizedKey();
-						}
-						
-						if(originalId != null && originalId.equalsIgnoreCase(originalTerm)) {
-							currentMatchRatio = 1;
-						} else {
-							currentMatchRatio = searchForMatchingWords(getStemmedStringArray(term.split(" |-"), lang, term),getStemmedStringArray(id.split(" "),lang, indexElements.get(i).getNormalizedKey()));
-						}			
-						
-						if(currentMatchRatio > highestmatchRatio){
-							highestmatchRatio = currentMatchRatio;
-							match = true;
-							conceptToLink = concept;
-						}						
-					}
-				}		
-			}
-			
-			//child entry gets concept from parent entry
-//			if(conceptToLink==null && indexTerms.get(i).getParent() != null){
-//				glossaryTerm = cm.getConceptOfIndexTerm(bookID, indexTerms.get(i).getParent());
-//				if (glossaryTerm != null) {
-//					hierarchicalHitCount++;
-//				}
-//			}
-			
-			if(conceptToLink!=null){
-				
-				directHitCount++;
-				
-				if(!removeFromConcepts.contains(conceptToLink))
-					removeFromConcepts.add(conceptToLink);
-					
-				glossaryTerm =conceptToLink.getURI().toString();
-				int lastIndex = glossaryTerm.lastIndexOf("#");
-				glossaryTerm = glossaryTerm.substring(lastIndex + 1);
-
-				String glossaryTerm2 = OntologyUtils.getConceptName(conceptToLink.getURI());
- 
-				hitCount++;
-				cm.addConceptToIndex(bookID, indexElements.get(i).getKey() ,glossaryTerm2);
-			}
-//			else if(glossaryTerm!=null){
-//				glossaryTerm = URLDecoder.decode(glossaryTerm, "UTF-8");	
-//				cm.addConceptToIndex(bookID, indexTerms.get(i).getID(),glossaryTerm);
-//				hitCount++;
-//			}
-		}	
-		
-		SystemLogger.getInstance().log("Linking Index to Glossary Terms...... Done");
-		SystemLogger.getInstance().log("Total hits# : " + hitCount);
-		SystemLogger.getInstance().log("Direct link # : " + directHitCount);
-		SystemLogger.getInstance().log("Parental link # : " + hierarchicalHitCount);
-		
-		concepts.removeAll(removeFromConcepts);
-		
-		return concepts;
-	}
 
 
 	public static List<SKOSConceptScheme> getSchemeList(){
 		return conceptSchemeList;
 	}
 	
-//	public static  SKOSDataset getGlossaryontology(){
-//
-//		try {
-//			SKOSDataset  ds = Persistence.getInstance().loadOntology();
-//			return ds;
-//		} catch (SKOSCreationException e) {
-//			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
-//		}
-//
-//		return null;		 
-//	}
+
 	
 }
