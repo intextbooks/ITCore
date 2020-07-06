@@ -2,17 +2,17 @@
 <intextbooksConfig>
 	<!-- PATHS -->
 		<!-- USE / as a filePath seperator -->
-		<ontologyPath>/data/ITCore/ontology/intextbooks.rdf</ontologyPath>
-		<contentFolder>/data/ITCore/repository/content/books/</contentFolder>
-		<modelFolder>/data/ITCore/repository/modelData/</modelFolder>
-		<modelFolderLinkingTests>/data/ITCore/repository/linkingData/modelFolder</modelFolderLinkingTests>
-		<extractionTmpFolder>/data/ITCore/repository/tmp/extractor/</extractionTmpFolder>
-		<extractedSegmentsTXT>/data/ITCore/repository/content/segments/txt/</extractedSegmentsTXT>
-		<extractedSegmentsPDF>/data/ITCore/repository/content/segments/pdf/</extractedSegmentsPDF>
-		<logFolder>/data/ITCore/logs/system/</logFolder>
-		<linkingFolder>/data/ITCore/repository/</linkingFolder>
-		<pythonScriptPath>/data/ITCore/scripts/noun-extractor.py</pythonScriptPath>
-		<tdbDirectory>/data/tdb_directory</tdbDirectory>
+		<ontologyPath>data/ontology/intextbooks.rdf</ontologyPath>
+		<contentFolder>data/repository/content/books/</contentFolder>
+		<modelFolder>data/repository/modelData/</modelFolder>
+		<modelFolderLinkingTests>data/repository/linkingData/modelFolder</modelFolderLinkingTests>
+		<extractionTmpFolder>data/repository/tmp/extractor/</extractionTmpFolder>
+		<extractedSegmentsTXT>data/repository/content/segments/txt/</extractedSegmentsTXT>
+		<extractedSegmentsPDF>data/repository/content/segments/pdf/</extractedSegmentsPDF>
+		<logFolder>data/logs/system/</logFolder>
+		<linkingFolder>data/repository/</linkingFolder>
+		<pythonScriptPath>data/scripts/noun-extractor.py</pythonScriptPath>
+		<tdbDirectory>data/tdb_directory</tdbDirectory>
 	<!-- MISC -->
 		<lineSeparator>#####</lineSeparator>
 		<silentLogging>true</silentLogging>
@@ -52,46 +52,46 @@
       <termIntroductionWeight>0.1</termIntroductionWeight>
 
 		<!-- Directories -->
-			<linkingInputDirectory>/data/ITCore/repository/linkingInput/</linkingInputDirectory>
-			<linkingOutputDirectory>/data/ITCore/repository/linkingOutput/</linkingOutputDirectory>
-			<documentsDirectory>/data/ITCore/repository/linkingInput/documents/</documentsDirectory>
-			<glossariesDirectory>/data/ITCore/repository/linkingInput/glossaries/</glossariesDirectory>
-			<resultsDirectory>/data/ITCore/repository/linkingOutput/linkingResults/</resultsDirectory>
-			<indicesDirectory>/data/ITCore/repository/linkingOutput/linkingResults/indices/</indicesDirectory>
-			<documentVsmCollectionsDirectory>/data/ITCore/repository/linkingOutput/linkingResults/documentVSMs/</documentVsmCollectionsDirectory>
-			<collectionSimilaritiesDirectory>/data/ITCore/repository/linkingOutput/linkingResults/collectionSimilarities/</collectionSimilaritiesDirectory>
-			<humanFeedbackDataDirectory>/data/ITCore/repository/linkingInput/humanFeedback/</humanFeedbackDataDirectory>
-			<evaluationResultsDirectory>/data/ITCore/repository/linkingOutput/linkingResults/evaluations/</evaluationResultsDirectory>
-			<basicDocumentsDirectory>/data/ITCore/repository/linkingInput/documents/basic/</basicDocumentsDirectory>
-			<testDocumentsDirectory>/data/ITCore/repository/linkingInput/documents/test/</testDocumentsDirectory>
-			<unorderedDocumentsDirectory>/data/ITCore/repository/linkingInput/documents/unordered/</unorderedDocumentsDirectory>
-			<testDataDirectory>/data/ITCore/repository/linkingOutput/linkingTestResults/</testDataDirectory>
-			<testIndicesDirectory>/data/ITCore/repository/linkingOutput/linkingTestResults/indices/</testIndicesDirectory>
-			<testDocumentVsmCollectionsDirectory>/data/ITCore/repository/linkingOutput/linkingTestResults/documentVSMs/</testDocumentVsmCollectionsDirectory>
-			<testCollectionSimilaritiesDirectory>/data/ITCore/repository/linkingOutput/linkingTestResults/collectionSimilarities/</testCollectionSimilaritiesDirectory>
-			<glossaryEffectivenessTest>/data/ITCore/repository/linkingOutput/linkingTestResults/glossaryEffectivenessTest/</glossaryEffectivenessTest>
-			<indexVsGlossary>/data/ITCore/repository/linkingOutput/linkingResults/documentVSMs/indexVsGlossary/</indexVsGlossary>
-			<glossaryIndexOverlap>/data/ITCore/repository/linkingOutput/linkingTestResults/glossaryIndexOverlap/</glossaryIndexOverlap>
+			<linkingInputDirectory>data/repository/linkingInput/</linkingInputDirectory>
+			<linkingOutputDirectory>data/repository/linkingOutput/</linkingOutputDirectory>
+			<documentsDirectory>data/repository/linkingInput/documents/</documentsDirectory>
+			<glossariesDirectory>data/repository/linkingInput/glossaries/</glossariesDirectory>
+			<resultsDirectory>data/repository/linkingOutput/linkingResults/</resultsDirectory>
+			<indicesDirectory>data/repository/linkingOutput/linkingResults/indices/</indicesDirectory>
+			<documentVsmCollectionsDirectory>data/repository/linkingOutput/linkingResults/documentVSMs/</documentVsmCollectionsDirectory>
+			<collectionSimilaritiesDirectory>data/repository/linkingOutput/linkingResults/collectionSimilarities/</collectionSimilaritiesDirectory>
+			<humanFeedbackDataDirectory>data/repository/linkingInput/humanFeedback/</humanFeedbackDataDirectory>
+			<evaluationResultsDirectory>data/repository/linkingOutput/linkingResults/evaluations/</evaluationResultsDirectory>
+			<basicDocumentsDirectory>data/repository/linkingInput/documents/basic/</basicDocumentsDirectory>
+			<testDocumentsDirectory>data/repository/linkingInput/documents/test/</testDocumentsDirectory>
+			<unorderedDocumentsDirectory>data/repository/linkingInput/documents/unordered/</unorderedDocumentsDirectory>
+			<testDataDirectory>data/repository/linkingOutput/linkingTestResults/</testDataDirectory>
+			<testIndicesDirectory>data/repository/linkingOutput/linkingTestResults/indices/</testIndicesDirectory>
+			<testDocumentVsmCollectionsDirectory>data/repository/linkingOutput/linkingTestResults/documentVSMs/</testDocumentVsmCollectionsDirectory>
+			<testCollectionSimilaritiesDirectory>data/repository/linkingOutput/linkingTestResults/collectionSimilarities/</testCollectionSimilaritiesDirectory>
+			<glossaryEffectivenessTest>data/repository/linkingOutput/linkingTestResults/glossaryEffectivenessTest/</glossaryEffectivenessTest>
+			<indexVsGlossary>data/repository/linkingOutput/linkingResults/documentVSMs/indexVsGlossary/</indexVsGlossary>
+			<glossaryIndexOverlap>data/repository/linkingOutput/linkingTestResults/glossaryIndexOverlap/</glossaryIndexOverlap>
 
 	<!-- POS tagging models -->
-		<englishPosModel>/data/ITCore/posmodels/wsj-0-18-bidirectional-distsim.tagger</englishPosModel>
-		<germanPosModel>/data/ITCore/posmodels/german-hgc.tagger</germanPosModel>
-		<frenchPosModel>/data/ITCore/posmodels/french.tagger</frenchPosModel>
-		<spanishPosModel>/data/ITCore/posmodels/spanish.tagger</spanishPosModel>
-		<dutchPosModel>/data/ITCore/posmodels/nl-pos-maxent.bin</dutchPosModel>
+		<englishPosModel>data/posmodels/wsj-0-18-bidirectional-distsim.tagger</englishPosModel>
+		<germanPosModel>data/posmodels/german-hgc.tagger</germanPosModel>
+		<frenchPosModel>data/posmodels/french.tagger</frenchPosModel>
+		<spanishPosModel>data/posmodels/spanish.tagger</spanishPosModel>
+		<dutchPosModel>data/posmodels/nl-pos-maxent.bin</dutchPosModel>
 	<!-- NER tagging models -->
 		<englishNERModel>edu/stanford/nlp/models/ner/english.all.3class.distsim.crf.ser.gz</englishNERModel>
-		<germanNERModel>/data/ITCore/stanfordNERModels/german.conll.germeval2014.hgc_175m_600.crf.ser.gz</germanNERModel>
-		<frenchNERModel>/data/ITCore/stanfordNERModels/eunews.fr.crf.gz</frenchNERModel>
-		<spanishNERModel>/data/ITCore/stanfordNERModels/spanish.ancora.distsim.s512.crf.ser.gz</spanishNERModel>
-		<dutchNERModel>/data/ITCore/stanfordNERModels/eunews.nl.crf.gz</dutchNERModel>
+		<germanNERModel>data/stanfordNERModels/german.conll.germeval2014.hgc_175m_600.crf.ser.gz</germanNERModel>
+		<frenchNERModel>data/stanfordNERModels/eunews.fr.crf.gz</frenchNERModel>
+		<spanishNERModel>data/stanfordNERModels/spanish.ancora.distsim.s512.crf.ser.gz</spanishNERModel>
+		<dutchNERModel>data/stanfordNERModels/eunews.nl.crf.gz</dutchNERModel>
 		<NERTags>PERSON,I-PERS,PERS,B-PER</NERTags>
 	<!-- Blacklists for ontology -->
-		<ontologyBlacklistsPath>/data/ITCore/ontology/blacklists/</ontologyBlacklistsPath>
+		<ontologyBlacklistsPath>data/ontology/blacklists/</ontologyBlacklistsPath>
 	<!-- TEX hyphenation patterns -->
-		<englishTexPattern>/data/ITCore/hyphenTables/hyph-en-gb.tex|/data/ITCore/hyphenTables/hyph-en-us.tex</englishTexPattern>
-		<germanTexPattern>/data/ITCore/hyphenTables/hyph-de-1996.tex</germanTexPattern>
-		<frenchTexPattern>/data/ITCore/hyphenTables/hyph-fr.tex</frenchTexPattern>
-		<spanishTexPattern>/data/ITCore/hyphenTables/hyph-es.tex</spanishTexPattern>
-		<dutchTexPattern>/data/ITCore/hyphenTables/hyph-nl.tex</dutchTexPattern>
+		<englishTexPattern>data/hyphenTables/hyph-en-gb.tex|data/hyphenTables/hyph-en-us.tex</englishTexPattern>
+		<germanTexPattern>data/hyphenTables/hyph-de-1996.tex</germanTexPattern>
+		<frenchTexPattern>data/hyphenTables/hyph-fr.tex</frenchTexPattern>
+		<spanishTexPattern>data/hyphenTables/hyph-es.tex</spanishTexPattern>
+		<dutchTexPattern>data/hyphenTables/hyph-nl.tex</dutchTexPattern>
 </intextbooksConfig>
