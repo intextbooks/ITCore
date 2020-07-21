@@ -28,7 +28,7 @@ The enrichment of terms usign DBpedia requires a local copy of DBpedia. The requ
 - http://www.w3.org/1999/02/22-rdf-syntax-ns#type   
 - http://www.w3.org/2004/02/skos/core#prefLabel    
 - http://www.w3.org/2004/02/skos/core#broader      
-- http://dbpedia.org/ontology/wikiPageDisambiguates 
+- http://dbpedia.org/ontology/wikiPageDisambiguates
 - http://www.w3.org/2004/02/skos/core#related       
 
 In the configuration file, use the property *tdbDirectory* to set the path to the TDB store.
@@ -47,7 +47,7 @@ If you find this code useful in your research, please consider citing:
   title={Order out of Chaos: Construction of Knowledge Models from PDF Textbooks},
   booktitle={Proceedings of the ACM Symposium on Document Engineering 2020},
   year={2020}
-}
+};
 
 @inproceedings{alpizar2019-web,
  author = {Alpizar-Chacon, Isaac and Sosnovsky, Sergey},
@@ -58,4 +58,4 @@ If you find this code useful in your research, please consider citing:
  location = {Hof, Germany},
  publisher = {ACM},
  address = {New York, NY, USA}
-} ;
+};
