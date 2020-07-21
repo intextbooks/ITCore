@@ -19,21 +19,18 @@ The src/intextbooks_db.sql file contains the database schema for the project. My
 The project requires Python >= 3.7. The following libraries should be installed: nltk >= 3.5, spacy >= 2.3.2 (with the "en_core_web_sm" model), and jep >= 3.9.0. In the configuration file, use the property *jepLibraryPath* to set the path to the Jep's built C library in your local machine. See: https://github.com/ninia/jep/wiki/FAQ#how-do-i-fix-unsatisfied-link-error-no-jep-in-javalibrarypath
 
 ### DBpedia
-THe enrichment of terms usign DBpedia requires a local copy of DBpedia. The required properties should be ingested into a TDB store (Apache Jena). The require properties are:
+The enrichment of terms usign DBpedia requires a local copy of DBpedia. The required properties should be ingested into a TDB store (Apache Jena). The require properties are:
 
------------------------------------------------------
-| property                                            |
-=======================================================
-| <http://dbpedia.org/ontology/wikiPageWikiLink>      |
-| <http://dbpedia.org/ontology/wikiPageRedirects>     |
-| <http://dbpedia.org/ontology/abstract>              |
-| <http://purl.org/dc/terms/subject>                  |
-| <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>   |
-| <http://www.w3.org/2004/02/skos/core#prefLabel>     |
-| <http://www.w3.org/2004/02/skos/core#broader>       |
-| <http://dbpedia.org/ontology/wikiPageDisambiguates> |
-| <http://www.w3.org/2004/02/skos/core#related>       |
--------------------------------------------------------
+- http://dbpedia.org/ontology/wikiPageWikiLink      
+- http://dbpedia.org/ontology/wikiPageRedirects     
+- http://dbpedia.org/ontology/abstract              
+- http://purl.org/dc/terms/subject                  
+- http://www.w3.org/1999/02/22-rdf-syntax-ns#type   
+- http://www.w3.org/2004/02/skos/core#prefLabel    
+- http://www.w3.org/2004/02/skos/core#broader      
+- http://dbpedia.org/ontology/wikiPageDisambiguates 
+- http://www.w3.org/2004/02/skos/core#related       
+
 In the configuration file, use the property *tdbDirectory* to set the path to the TDB store.
 
 ## Usage
