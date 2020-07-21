@@ -17,5 +17,6 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="lib" path="lib/skos-api-onejar.jar"/>
+	<classpathentry kind="lib" path="lib/dna-common-0.7.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

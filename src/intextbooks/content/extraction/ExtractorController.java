@@ -6,6 +6,7 @@ import java.util.Enumeration;
 import intextbooks.content.extraction.buildingBlocks.structure.BookStructure;
 import intextbooks.content.extraction.structure.StructureExtractor;
 import intextbooks.exceptions.BookWithoutPageNumbersException;
+import intextbooks.exceptions.BookWithoutTextPagesException;
 import intextbooks.exceptions.EarlyInterruptionException;
 import intextbooks.exceptions.NoIndexException;
 import intextbooks.exceptions.TOCNotFoundException;
@@ -19,21 +20,21 @@ public class ExtractorController {
 	private static ExtractorController instance;
 	
 	
-   public static ExtractorController getInstance(String bookID,String filePath, LanguageEnum lang, resourceType type) throws NullPointerException, TOCNotFoundException, EarlyInterruptionException, BookWithoutPageNumbersException, NoIndexException {
+   public static ExtractorController getInstance(String bookID,String filePath, LanguageEnum lang, resourceType type) throws NullPointerException, TOCNotFoundException, EarlyInterruptionException, BookWithoutPageNumbersException, NoIndexException, BookWithoutTextPagesException {
 		
 		instance = new ExtractorController(bookID,filePath, lang,type, false, false, false);
 		
 		return instance;
 	}
 	
-	public static ExtractorController getInstance(String bookID,String filePath, LanguageEnum lang, resourceType type, boolean processReadingLabels , boolean linkToExternalGlossary, boolean splitTextbook) throws NullPointerException, TOCNotFoundException, BookWithoutPageNumbersException, NoIndexException {
+	public static ExtractorController getInstance(String bookID,String filePath, LanguageEnum lang, resourceType type, boolean processReadingLabels , boolean linkToExternalGlossary, boolean splitTextbook) throws NullPointerException, TOCNotFoundException, BookWithoutPageNumbersException, NoIndexException, BookWithoutTextPagesException {
 		
 		instance = new ExtractorController(bookID,filePath, lang, type, processReadingLabels, linkToExternalGlossary, splitTextbook);
 		
 		return instance;
 	}
 	
-	public ExtractorController(String bookID,String filePath, LanguageEnum lang, resourceType type, boolean processReadingLabels, boolean linkToExternalGlossary, boolean splitTextbook) throws NullPointerException, TOCNotFoundException, BookWithoutPageNumbersException, NoIndexException{	
+	public ExtractorController(String bookID,String filePath, LanguageEnum lang, resourceType type, boolean processReadingLabels, boolean linkToExternalGlossary, boolean splitTextbook) throws NullPointerException, TOCNotFoundException, BookWithoutPageNumbersException, NoIndexException, BookWithoutTextPagesException{	
 		sE = new StructureExtractor(bookID,filePath,lang, type, processReadingLabels, linkToExternalGlossary, splitTextbook);			
 	}
 	

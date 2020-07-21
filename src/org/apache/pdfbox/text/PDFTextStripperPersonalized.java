@@ -16,8 +16,10 @@
  */
 package org.apache.pdfbox.text;
 
+import java.awt.Color;
 import java.awt.Shape;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.GeneralPath;
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.io.InputStream;
@@ -64,9 +66,18 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageTree;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDCIDFontType2;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDSimpleFont;
+import org.apache.pdfbox.pdmodel.font.PDTrueTypeFont;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
+import org.apache.pdfbox.pdmodel.font.PDType3CharProc;
+import org.apache.pdfbox.pdmodel.font.PDType3Font;
+import org.apache.pdfbox.pdmodel.font.PDVectorFont;
 import org.apache.pdfbox.pdmodel.graphics.color.PDColor;
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem;
 import org.apache.pdfbox.pdmodel.interactive.pagenavigation.PDThreadBead;
+import org.apache.pdfbox.util.Matrix;
 import org.apache.pdfbox.util.QuickSort;
 
 import intextbooks.SystemLogger;
@@ -101,7 +112,7 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
      */
 	private AffineTransform flipAT;
     private AffineTransform rotateAT;
-
+    private AffineTransform transAT;
 
     // enable the ability to set the default indent/drop thresholds
     // with -D system properties:
@@ -235,7 +246,10 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
      * @author alpiz001
      */
     protected Map<TextPosition, PDColor> colorByTextPosition= new HashMap<TextPosition, PDColor>();
+    protected Map<TextPosition, BoundingBox> realBoundingBoxByTextPosition= new HashMap<TextPosition, BoundingBox>();
     protected Map<TextPosition, BoundingBox> boundingBoxByTextPosition= new HashMap<TextPosition, BoundingBox>();
+    protected Set<TextPosition> modifiedBB = new HashSet<TextPosition>();
+    protected TextPosition currentTextPosition;
     protected String completeText;
     protected Vector<ResourceUnit> units = new Vector <ResourceUnit>();
     protected ResourceUnit currentResourceUnit;
@@ -425,6 +439,132 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
     {
         // no default implementation, but available for subclasses
     }
+    
+    /**
+     * @author alpiz001 from DrawPrintTextLocations.java example
+     */
+    protected void showGlyph(Matrix textRenderingMatrix, PDFont font, int code, String unicode,
+    		org.apache.pdfbox.util.Vector displacement) throws IOException
+    {
+    	super.showGlyph(textRenderingMatrix, font, code, unicode, displacement);
+    	
+    	Shape s = calculateGlyphBounds(textRenderingMatrix, font, code);
+
+        if (s != null)
+        {
+            s = flipAT.createTransformedShape(s);
+            s = rotateAT.createTransformedShape(s);
+            s = transAT.createTransformedShape(s);
+
+            Rectangle2D bBpos = s.getBounds2D();
+	        
+	        BoundingBox bB = new BoundingBox((float)bBpos.getX(), (float)bBpos.getY(), (float)bBpos.getMaxX(), (float)bBpos.getMaxY());
+	        this.realBoundingBoxByTextPosition.put(this.currentTextPosition, bB);
+            
+            //System.out.println("\tGlyph Bounding Box:  X: " + s.getBounds2D().getX() + ", Y: " + s.getBounds2D().getY() + ", MaxX :" + s.getBounds2D().getMaxX() + ", MaxY :" + s.getBounds2D().getMaxY() + 
+            //		", Width: " + s.getBounds2D().getWidth());
+
+        }
+    }
+    
+    /**
+     * @author alpiz001 from DrawPrintTextLocations.java example
+     */
+    private Shape calculateGlyphBounds(Matrix textRenderingMatrix, PDFont font, int code) throws IOException
+    {
+        GeneralPath path = null;
+        AffineTransform at = textRenderingMatrix.createAffineTransform();
+        at.concatenate(font.getFontMatrix().createAffineTransform());
+        if (font instanceof PDType3Font)
+        {
+            // It is difficult to calculate the real individual glyph bounds for type 3 fonts
+            // because these are not vector fonts, the content stream could contain almost anything
+            // that is found in page content streams.
+            PDType3Font t3Font = (PDType3Font) font;
+            PDType3CharProc charProc = t3Font.getCharProc(code);
+            if (charProc != null)
+            {
+                BoundingBox fontBBox = t3Font.getBoundingBox();
+                PDRectangle glyphBBox = charProc.getGlyphBBox();
+                if (glyphBBox != null)
+                {
+                    // PDFBOX-3850: glyph bbox could be larger than the font bbox
+                    glyphBBox.setLowerLeftX(Math.max(fontBBox.getLowerLeftX(), glyphBBox.getLowerLeftX()));
+                    glyphBBox.setLowerLeftY(Math.max(fontBBox.getLowerLeftY(), glyphBBox.getLowerLeftY()));
+                    glyphBBox.setUpperRightX(Math.min(fontBBox.getUpperRightX(), glyphBBox.getUpperRightX()));
+                    glyphBBox.setUpperRightY(Math.min(fontBBox.getUpperRightY(), glyphBBox.getUpperRightY()));
+                    path = glyphBBox.toGeneralPath();
+                }
+            }
+        }
+        else if (font instanceof PDVectorFont)
+        {
+            PDVectorFont vectorFont = (PDVectorFont) font;
+            path = vectorFont.getPath(code);
+
+            if (font instanceof PDTrueTypeFont)
+            {
+                PDTrueTypeFont ttFont = (PDTrueTypeFont) font;
+                int unitsPerEm = ttFont.getTrueTypeFont().getHeader().getUnitsPerEm();
+                at.scale(1000d / unitsPerEm, 1000d / unitsPerEm);
+            }
+            if (font instanceof PDType0Font)
+            {
+                PDType0Font t0font = (PDType0Font) font;
+                if (t0font.getDescendantFont() instanceof PDCIDFontType2)
+                {
+                    int unitsPerEm = ((PDCIDFontType2) t0font.getDescendantFont()).getTrueTypeFont().getHeader().getUnitsPerEm();
+                    at.scale(1000d / unitsPerEm, 1000d / unitsPerEm);
+                }
+            }
+        }
+        else if (font instanceof PDSimpleFont)
+        {
+            PDSimpleFont simpleFont = (PDSimpleFont) font;
+
+            // these two lines do not always work, e.g. for the TT fonts in file 032431.pdf
+            // which is why PDVectorFont is tried first.
+            String name = simpleFont.getEncoding().getName(code);
+            path = simpleFont.getPath(name);
+        }
+        else
+        {
+            // shouldn't happen, please open issue in JIRA
+            System.out.println("Unknown font class: " + font.getClass());
+        }
+        if (path == null)
+        {
+            return null;
+        }
+        return at.createTransformedShape(path.getBounds2D());
+    }
+    
+    private float overlappingArea(BoundingBox bB1, BoundingBox bB2) {
+    	
+	// Area of 1st Rectangle 
+	float area1 = Math.abs(bB1.getLowerLeftX() - bB1.getUpperRightX()) * Math.abs(bB1.getLowerLeftY() - bB1.getUpperRightY()); 
+
+
+	// Area of 2nd Rectangle 
+	float area2 = Math.abs(bB2.getLowerLeftX() - bB2.getUpperRightX()) * Math.abs(bB2.getLowerLeftY() - bB2.getUpperRightY()); 		
+	
+	// Length of intersecting part i.e  
+	// start from max(l1.x, l2.x) of  
+	// x-coordinate and end at min(r1.x, 
+	// r2.x) x-coordinate by subtracting  
+	// start from end we get required  
+	// lengths 
+	float areaI = (Math.min(bB1.getUpperRightX(), bB2.getUpperRightX()) - Math.max(bB1.getLowerLeftX(), bB2.getLowerLeftX())) *  (Math.min(bB1.getUpperRightY(), bB2.getUpperRightY()) - Math.max(bB1.getLowerLeftY(), bB2.getLowerLeftY())); 
+	
+	float outside2 = area2 - areaI;
+	
+	return outside2 / area2;
+	
+	//return areaI / area1;
+	
+	//return (area1 + area2 - areaI); 
+	
+    } 
 
     /**
      * This will process the contents of a page.
@@ -479,6 +619,7 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
             /**
              * @author alpiz001
              */
+            PDRectangle cropBox = page.getCropBox();
             // flip y-axis
             flipAT = new AffineTransform();
             flipAT.translate(0, page.getBBox().getHeight());
@@ -506,7 +647,8 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
                 }
                 rotateAT.rotate(Math.toRadians(rotation2));
             }
-            
+         // cropbox
+            transAT = AffineTransform.getTranslateInstance(-cropBox.getLowerLeftX(), cropBox.getLowerLeftY());
             
             super.processPage(page);
             writePage();
@@ -660,6 +802,18 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
     	        
     	        BoundingBox bB = new BoundingBox((float)bBpos.getX(), (float)bBpos.getY(), (float)bBpos.getMaxX(), (float)bBpos.getMaxY());
     	        this.boundingBoxByTextPosition.put(text, bB);
+    	        
+    	        BoundingBox realBB = this.realBoundingBoxByTextPosition.get(text);
+    	        
+    	        float outside = this.overlappingArea(bB, realBB);
+    	        if(outside > 0.8 && this.overlap(bB, realBB)) {
+    	        	 bB = new BoundingBox((float)Math.min(bB.getLowerLeftX(), realBB.getLowerLeftX()), (float)realBB.getLowerLeftY(), (float)Math.max(bB.getUpperRightX(), realBB.getUpperRightX()), (float)realBB.getUpperRightY());
+    	    	     this.boundingBoxByTextPosition.put(text, bB);
+    	    	     this.modifiedBB.add(text);
+    	        	 //System.out.println("%: "+ outside + " [" + text.getUnicode()+"] " + outside);
+    	        }
+    	       
+    	        
     	        //System.out.println("\t " + text.getUnicode() + " :Bounding Box:  X: " + bB.getLowerLeftX() + ", Y: " + bB.getLowerLeftY()+ ", MaxX :" + bB.getUpperRightX()+ ", MaxY :" + bB.getUpperRightY());
     	        //System.out.println("\t " + text.getUnicode() + " :Bounding Box:  X: " + s.getBounds2D().getX() + ", Y: " + s.getBounds2D().getY() + ", MaxX :" + s.getBounds2D().getMaxX() + ", MaxY :" + s.getBounds2D().getMaxY());
         	}
@@ -669,8 +823,6 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
         		sortUsingBoundingBoxes(textList);
 
             }
-            
-           
 
             startArticle();
             startOfArticle = true;
@@ -806,9 +958,11 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
 
                     BoundingBox lastBB = this.boundingBoxByTextPosition.get(lastPosition.getTextPosition());               
                     
-                    if ((!overlap(currentBB, lastBB)) || (currentBB.getLowerLeftX() < lastBB.getUpperRightX() && boundingBoxesAreDisjoint(currentBB, lastBB) ) )
+                    if ((!overlap(currentBB, lastBB)) || (currentBB.getLowerLeftX() < lastBB.getUpperRightX() 
+                    		&& boundingBoxesAreDisjoint(currentBB, lastBB)
+                    		&& currentBB.getUpperRightY() != lastBB.getUpperRightY() ) )
                     {
-                    	/*TESTING*/
+//                    	/*TESTING*/
 //                    	System.out.println("--- new line" );
 //                      System.out.println("!overlap(currentBB, lastBB)): " + !overlap(currentBB, lastBB));
 //                      System.out.println("currentBB.getLowerLeftX() < lastBB.getUpperRightX(): " + (currentBB.getLowerLeftX() < lastBB.getUpperRightX()));
@@ -823,7 +977,7 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
 //                      System.out.println("\tY TOP: " + lastBB.getLowerLeftY());
 //                      System.out.println("\tY BOT: " + lastBB.getUpperRightY());
 //                    	System.out.println("--- new line  END" );
-                    	/*TESTING*/
+//                    	/*TESTING*/
                     	writeLine(normalize(line));
                         line.clear();
                         lastLineStartPosition = handleLineSeparation(current, lastPosition,
@@ -904,6 +1058,7 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
      * @return
      */
     private void sortUsingBoundingBoxes(List<TextPosition> textList) {
+    	double flexibilityTH = 0.5;
     	Map<Integer,List<TextPosition>> lines = new TreeMap<Integer,List<TextPosition>>();
     	
     	//group the chars according to their BB Y positions and form tmp lines
@@ -917,19 +1072,52 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
 			tmpList.add(text);
 			lines.put(key, tmpList);
     	}
+  
+    	//convert lines to iterate over them
+    	Entry<Integer, List<TextPosition>>[] a = new Entry[1];
+    	Entry<Integer, List<TextPosition>>[] arrayOfLines = lines.entrySet().toArray(a);
+    	List<TextPosition> mergedTextPositions = new ArrayList<TextPosition>(); 
+    	
+    	
+    	//flexibility: merge really close lines
+    	for(int i = 0; i < arrayOfLines.length -1; i++) {
+    		List<TextPosition> line0 = arrayOfLines[i].getValue();
+    		List<TextPosition> line1 = arrayOfLines[i+1].getValue();
+    		if(line0.size() > 0 && line1.size() > 0) {
+    			BoundingBox bB1 = this.boundingBoxByTextPosition.get(line0.get(0));
+    			BoundingBox bB2 = this.boundingBoxByTextPosition.get(line1.get(0));
+    			double diff = Math.abs(bB1.getUpperRightY() - bB2.getUpperRightY());
+    			if( diff <= flexibilityTH) {
+    				//merge
+    				line0.addAll(line1);
+    				line1.clear();
+    				i++;
+    				continue;
+    			}
+    		}
+    	}
+    	
+    	//remvoe empty lines
+    	Iterator<Entry<Integer, List<TextPosition>>> linesIt = lines.entrySet().iterator();
+    	while(linesIt.hasNext()) {
+    		Entry<Integer, List<TextPosition>> line = linesIt.next();
+    		if(line.getValue().size() == 0) {
+    			linesIt.remove();
+    		}
+    	}
     	
 //    	/*TESTING*/
 //    	System.out.println("LINES >>>>>>>>>>>");
 //    	for(Entry<Integer, List<TextPosition>> e : lines.entrySet() ) {
 //    		Collections.sort(e.getValue(), new TextPositionXComparator());
 //    		System.out.println("^ " + getListAsString(e.getValue()));
+//    		for(TextPosition t: e.getValue()){
+//    			BoundingBox bB = this.boundingBoxByTextPosition.get(t);
+//    			//System.out.println("\t"+t.getUnicode() + " " + bB.getUpperRightY());
+//    		}
 //    	} 
-//    	//System.exit(0);
-  
-    	//convert lines to iterate over them
-    	Entry<Integer, List<TextPosition>>[] a = new Entry[1];
-    	Entry<Integer, List<TextPosition>>[] arrayOfLines = lines.entrySet().toArray(a);
-    	List<TextPosition> mergedTextPositions = new ArrayList<TextPosition>(); 
+//    	System.exit(0);
+//    	/*TESTING*/
     		
     	//get lines that overlap (share Y coordinates) to other lines
     	Set<Integer>  overlappingLines = new TreeSet<Integer>();
@@ -957,6 +1145,13 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
     	
 //    	/*TESTING*/
 //    	System.out.println("SET 1: " + overlappingLines);	
+//    	for(Integer l: overlappingLines) {
+//    		Entry<Integer, List<TextPosition>> tp = arrayOfLines[l];
+//    		for(TextPosition p: tp.getValue()) {
+//    			System.out.println(p.getUnicode()  + " " + p.getFontSizeInPt());
+//    		}
+//    	}
+//    	System.exit(0);
 //    	/*TESTING*/
 
     	//check each line from the overlapping set, starting from the ones with less characters in the line
@@ -984,7 +1179,7 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
 					continue;
 				}
 				BoundingBox bbCurrentElement = this.boundingBoxByTextPosition.get(currentElement);
-				//System.out.println("Processing Element: " + currentElement.getUnicode());
+				//System.out.println("Processing Element: " + currentElement.getUnicode() + " " + currentElement.getUnicode().length() + " " +  (int) currentElement.getUnicode().charAt(0) );
 				
 				float bestSharedAreaToPreviousLine = 0;
 				int bestClosestPreviousLine = 0;
@@ -1038,7 +1233,7 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
 //    			System.out.println("bestClosestFollowingElement: " + (bestClosestFollowingLine != 0 ? bestClosestElementFollowingLine.getUnicode() : "null"));
 //    			/*TESTING*/
     			
-    			//choose the best match between the previous and the following lines, then store the lines indeces so they can be merged
+    			//choose the best match between the previous and the following lines, then store the lines indices so they can be merged
     			if(bestSharedAreaToPreviousLine > bestSharedAreaToFollowingLine) {
 //					/*TESTING*/
 //					System.out.println("best element other line: " + bestClosestElementPreviousLine.getUnicode() + " in line: " + bestClosestPreviousLine);
@@ -1247,6 +1442,10 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
     	float biggestSharedArea = 0;
     	TextPosition closestElement = null;
     	
+    	if(element.getUnicode().length() > 0 && ((int) element.getUnicode().charAt(0)) <= 32) {
+    		return closestElement;
+    	}
+    	
     	//check all the elements in the list
     	for(TextPosition otherElement : list) {
     		if(otherElement.equals(element))
@@ -1265,8 +1464,9 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
 
     		//if the element is close or fully overlapping
     		if((diff < Math.max(element.getWidthOfSpace(), otherElement.getWidthOfSpace())) || isFullOverlap(bbElement, bbOtherElement)) {
-    			//if the font sizes of the elements are differents
-    			if(element.getFontSizeInPt() != otherElement.getFontSizeInPt() ) {
+    			//if the font sizes of the elements are different
+    			if(elementsOverlapYRealBB(element, otherElement) && (element.getFontSizeInPt() != otherElement.getFontSizeInPt() || this.modifiedBB.contains(element) )) {
+    				
         			float localSharedY = getSharedY(bbElement, bbOtherElement);
         			//if the element has a better shared Y area
         			if(localSharedY > biggestSharedArea) {
@@ -1279,6 +1479,13 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
     	}
     	
     	return closestElement;
+    }
+    
+    private boolean elementsOverlapYRealBB(TextPosition element1, TextPosition element2) {
+    	BoundingBox realBB1 = this.realBoundingBoxByTextPosition.get(element1);
+    	BoundingBox realBB2 = this.realBoundingBoxByTextPosition.get(element2);
+ 	
+        return this.overlap(realBB1, realBB2);
     }
 
     /**
@@ -1375,6 +1582,8 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
     @Override
     protected void processTextPosition(TextPosition text)
     {
+    	
+    	this.currentTextPosition = text;
     	
     	//IAC storing color of each TextPosition
     	PDColor nonStrokingColor = getGraphicsState().getNonStrokingColor();
@@ -2583,6 +2792,7 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
     private StringBuilder normalizeAdd(List<WordWithTextPositions> normalized,
             StringBuilder lineBuilder, List<TextPosition> wordPositions, LineItem item, LineItem lastItem)
     {
+    	
         if (item.isWordSeparator())
         {
             normalized.add(
@@ -2607,12 +2817,26 @@ public class PDFTextStripperPersonalized extends LegacyPDFStreamEngine
             /**
              * modified by @author alpiz001 to include special chars that are non-visual, and they probably mean glyphs with unmatched text characters
              */
-            if(StringUtils.isWhitespace(unicode))
+            if(StringUtils.isWhitespace(unicode) || isEmptyUnicode(unicode) ) {
             	unicode = String.valueOf(PdfTextExtractor.charReplacer);
+            }
             lineBuilder.append(unicode);
             wordPositions.add(text);
         }
         return lineBuilder;
+    }
+    
+    private boolean isEmptyUnicode(String unicode) {
+    	try {
+    		int num = unicode.toCharArray()[0];
+    		if(num <= 31 || num == 127 || num == 255) {
+    			return true;
+    		} else {
+    			return false;
+    		}
+    	} catch (Exception e) {
+    		return true;
+    	}
     }
 
     /**

@@ -113,6 +113,8 @@ public class ConfigurationLoader {
 	
 	private String tdbDirectory;
 	
+	private String jepLibraryPath;
+	
 	private int numberOfJumps;
 	private double similarityScoreThreshold;
 	
@@ -213,6 +215,7 @@ public class ConfigurationLoader {
 		loadUsedOntologyBlacklist(doc);
 		loadPythonScriptPathPath(doc);
 		loadTdbDirectory(doc);
+		loadJepLibraryPath(doc);
 		loadEnglishTexPattern(doc);
 		loadGermanTexPattern(doc);
 		loadFrenchTexPattern(doc);
@@ -276,6 +279,12 @@ public class ConfigurationLoader {
 		NodeList path = doc.getElementsByTagName("tdbDirectory");
 		for(int iter=0;iter<path.getLength();iter++)
 			this.tdbDirectory = path.item(iter).getTextContent();
+	}
+	
+	private void loadJepLibraryPath(Document doc) {
+		NodeList path = doc.getElementsByTagName("jepLibraryPath");
+		for(int iter=0;iter<path.getLength();iter++)
+			this.jepLibraryPath = path.item(iter).getTextContent();
 	}
 
 	private void loadOntologyBlacklistsPath(Document doc) {
@@ -476,10 +485,10 @@ public class ConfigurationLoader {
 	
 	
 	private void loadSilentLog(Document doc) {
-		NodeList silentLogNodes = doc.getElementsByTagName("silentLog");
-		for(int iter=0;iter<silentLogNodes.getLength();iter++)
+		NodeList silentLogNodes = doc.getElementsByTagName("silentLogging");
+		for(int iter=0;iter<silentLogNodes.getLength();iter++) {
 			this.silentLogging = Boolean.parseBoolean(silentLogNodes.item(iter).getTextContent());
-		
+		}
 	}
 	
 	private void loadModelFolderLT(Document doc) {
@@ -1044,6 +1053,10 @@ public class ConfigurationLoader {
 	
 	public String getTdbDirectory() {
 		return this.tdbDirectory;
+	}
+	
+	public String getJepLibraryPath() {
+		return this.jepLibraryPath;
 	}
 	
 	public String getEnglishTexPattern() {

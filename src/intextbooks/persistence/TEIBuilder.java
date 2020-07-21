@@ -80,6 +80,14 @@ public class TEIBuilder {
 	int id;
 	HyphenationResolver hyphenResolver;
 	
+	// remove illegal unicode characters
+	String xml10pattern = "[^"
+	            + "\u0009\r\n"
+	            + "\u0020-\uD7FF"
+	            + "\uE000-\uFFFD"
+	            + "\ud800\udc00-\udbff\udfff"
+	            + "]";
+	
 	class PageBreak{
 		int pageNumber;
 		int pageIndex;
@@ -203,7 +211,7 @@ public class TEIBuilder {
 				String authors = this.metadata.get("authors");
 				if(authors != null) {
 					if(authors.contains("|")) {
-						String[] authorsNames = authors.split("|");
+						String[] authorsNames = authors.split("[|]");
 						for(String singleAuthor: authorsNames) {
 							if(!singleAuthor.equals("")) {
 								Element author = document.createElement("author");
@@ -267,7 +275,7 @@ public class TEIBuilder {
 			ref.appendChild(document.createTextNode(String.valueOf(r.getPage())));
 			tocElement.appendChild(ref);
 			
-			int id = this.findID(r.getTitle());
+			int id = this.findID(r.getTitle(), r.getPage());
 			if(id != -1) {
 				this.setTarget(ref, id);
 			}
@@ -306,15 +314,16 @@ public class TEIBuilder {
 			Element indexElement = document.createElement("item");
 			indexElement.appendChild(document.createTextNode(indexTerm.getLastPart()));
 			List<Integer> pageNumbers = indexTerm.getPageNumbers();
-			List<Integer> pageSegments = indexTerm.getPageSegments();
-			for(int pN = 0; pN< pageNumbers.size(); pN++) {
-				int page = pageNumbers.get(pN);
-				int segment = pN < pageSegments.size() ? pageSegments.get(pN) : -1;
-				Element ref = document.createElement("ref");
-				ref.appendChild(document.createTextNode(String.valueOf(page)));
-				indexElement.appendChild(ref);
-				if(segment != -1) {
-					this.setTarget(ref, segment - 1);
+			Map<Integer, List<Integer>> pageSegments = indexTerm.getPageSegments();
+			for(Entry<Integer, List<Integer>> entry: pageSegments.entrySet() ) {
+				int page = entry.getKey();
+				if(page != -1) {
+					for(Integer segment: entry.getValue()) {
+						Element ref = document.createElement("ref");
+						ref.appendChild(document.createTextNode(String.valueOf(page)));
+						indexElement.appendChild(ref);
+						this.setTarget(ref, segment - 1);
+					}
 				}
 			}
 			Element indexElementList = document.createElement("list");
@@ -351,17 +360,18 @@ public class TEIBuilder {
 		for(int i=0; i < segmentsData.size(); i++) {
 			SegmentData s = segmentsData.get(i);
 		
-			/*TESTING*/
+//			/*TESTING*/
 //			System.out.println("> " + s.getTitle()+ " ID: " + s.getChapterID() + " PID: " + s.getParagraphID() + " H: " + s.getHierarchy());	
 //			System.out.println("\tTitleStart: " + s.getChapterMedatada().getPageStartIndex() + " startLine: " + s.getChapterMedatada().getTitleLineStart());
 //			System.out.println("\tstartP: " + s.getChapterMedatada().getPageStartIndex() + " startLine: " + s.getChapterMedatada().getLineStart());		
-//			if(i > 2) {
-//				return;
-//			}
-			/*TESTING*/
+//			/*TESTING*/
+			
+			if(s.getChapterMedatada().isNonContent()) {
+				continue;
+			}
 			
 			//check if we must stop for index
-			if(s.getChapterMedatada().getPageStartIndex() >= firstIndexPage) {
+			if(firstIndexPage != -1 && s.getChapterMedatada().getPageStartIndex() >= firstIndexPage) {
 				break;
 			}
 			
@@ -396,12 +406,13 @@ public class TEIBuilder {
 			sections.add(section);
 			
 			//PAGE BEGINNING
-			if(s.getChapterMedatada().getTitleLineStart() == 0) {
+			if(s.getChapterMedatada().getTitleLineStart() < 2) {
 				appendPB(section, s.getChapterMedatada().getPageStart(), s.getChapterMedatada().getPageStartIndex());
 			}
 			
 			//HEAD
 			Element head = document.createElement("head");
+			this.setID(head);
 			section.appendChild(head);
 			
 			//get title of section 
@@ -466,7 +477,7 @@ public class TEIBuilder {
 				
 				if(p == startPageIndex && s.getChapterMedatada().getChapterHierarchy() == 1) {
 					int before = lines.size();
-					ContentExtractor.removeCopyRightLines(lines, s.getChapterMedatada().getPageStart());
+					ContentExtractor.removeCopyRightLines(lines, s.getChapterMedatada().getPageStart(), this.metadata);
 					int after = lines.size();
 					lineIndex -= (before - after);	
 				}
@@ -584,9 +595,10 @@ public class TEIBuilder {
 		element.setAttribute("target", "seg_"+ String.valueOf(target));
 	}
 	
-	private int findID(String title) {
+	private int findID(String title, int pageNumber) {
 		for(int i=0; i < segmentsData.size(); i++) {
-			if(segmentsData.get(i).getTitle().equals(title)) {
+			;
+			if(segmentsData.get(i).getTitle().equals(title) && segmentsData.get(i).getChapterMedatada().getPageStart() == pageNumber) {
 				return segmentsData.get(i).getChapterID();
 			}
 		}
@@ -605,7 +617,7 @@ public class TEIBuilder {
 	private void appendPB(Element element, int pageNumber, int pageIndex) {
 		Element pb = document.createElement("pb");
 		pb.setAttribute("n", String.valueOf(pageNumber));
-		pb.setAttribute("source", String.valueOf(pageIndex));
+		pb.setAttribute("source", String.valueOf(pageIndex + 1));
 		element.appendChild(pb);
 	}
 	
@@ -619,12 +631,14 @@ public class TEIBuilder {
 		for(Text w: l.getWords()) {
 			Element word = document.createElement("w");
 			setID(word);
-			word.appendChild(document.createTextNode(w.getText()));
+			word.appendChild(document.createTextNode(clean(w.getText())));
 			element.appendChild(word);
 		}
 	}
 	
-	
+	private String clean(String input) {
+		return input.replaceAll(xml10pattern, " ");
+	}
 	
 	public static void main(String args[]) {
 		//TEIBuilder b = new TEIBuilder("/tmp/tei.xml", "Walpole");

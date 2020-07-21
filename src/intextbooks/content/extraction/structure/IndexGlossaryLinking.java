@@ -5,15 +5,19 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Vector;
 import java.util.stream.IntStream;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.semanticweb.skos.SKOSAnnotation;
 import org.semanticweb.skos.SKOSConcept;
 import org.semanticweb.skos.SKOSConceptScheme;
@@ -23,6 +27,7 @@ import org.semanticweb.skos.SKOSUntypedLiteral;
 
 import intextbooks.SystemLogger;
 import intextbooks.content.ContentManager;
+import intextbooks.content.enrichment.Concept;
 import intextbooks.content.extraction.Utilities.Stemming;
 import intextbooks.content.extraction.Utilities.StringOperations;
 import intextbooks.content.extraction.buildingBlocks.structure.IndexElement;
@@ -30,6 +35,7 @@ import intextbooks.content.extraction.buildingBlocks.structure.IndexTerm;
 import intextbooks.ontologie.LanguageEnum;
 import intextbooks.persistence.Persistence;
 import intextbooks.tools.utility.OntologyUtils;
+import intextbooks.tools.utility.StringUtils;
 import uk.ac.manchester.cs.skos.SKOSRDFVocabulary;
 
 public class IndexGlossaryLinking {
@@ -163,14 +169,8 @@ public class IndexGlossaryLinking {
 		return 0;
 	}
 
-	
-	
-
-
 	public static List<SKOSConceptScheme> getSchemeList(){
 		return conceptSchemeList;
 	}
-	
-
 	
 }

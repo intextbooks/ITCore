@@ -1,11 +1,20 @@
 package intextbooks.tools.utility;
 
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.PrimitiveIterator.OfInt;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.jboss.dna.common.text.Inflector;
 
 import com.hp.hpl.jena.util.URIref;
 
+import intextbooks.SystemLogger;
+import intextbooks.content.extraction.Utilities.Stemming;
 import intextbooks.ontologie.LanguageEnum;
 
 public class StringUtils {
@@ -361,8 +370,154 @@ public class StringUtils {
 		return newText;
 	}
 	
+	public static ArrayList<String> getPermutations(List<String> parts) {
+	    ArrayList<String> results = new ArrayList<String>();
+
+	    // the base case
+	    if (parts.size() == 1) {
+	        results.add(parts.get(0));
+	        return results;
+	    }
+
+	    for (int i = 0; i < parts.size(); i++) {
+	        String first = parts.get(i);
+	        List<String> remains = new ArrayList<String>();
+	        for(int j = 0; j < parts.size(); j++) {
+	        	if(j != i) {
+	        		remains.add(parts.get(j));
+	        	}
+	        }
+
+	        ArrayList<String> innerPermutations = getPermutations(remains);
+
+	        for (int j = 0; j < innerPermutations.size(); j++)
+	            results.add(first + " " + innerPermutations.get(j));
+	    }
+	    return results;
+	}
+	
 	public static String fixFI(String text) {
 		return text.replaceAll("ﬁ", "fi");
 	}
+	
+	public static String getNormalizedKey(String key) {
+		return key.replaceAll(" <> ", " ").toLowerCase().trim();
+	}
+	
+	public static String stemText(String text, LanguageEnum lang) {
+		String parts[] = text.split("\\s+");
+		String stemedText = "";
+		for(String part: parts) {
+			stemedText += Stemming.stemText(lang, part) + " ";
+		}
+		return stemedText.trim();
+	}
+	
+	public static Pair<String, String> separateString(String text){
+		String main = "";
+		String secundary = "";
+		IntStream intStream = text.chars();
+		OfInt iterator = intStream.iterator();
+		boolean inWord = false;
+		while(iterator.hasNext()) {
+			char c = (char) iterator.nextInt();
+			if(c == '(') {
+				inWord = true;
+			} else if (c == ')') {
+				inWord = false;
+				secundary += " ";
+			} else {
+				if(inWord) {
+					secundary += c;
+				} else {
+					main += c;
+				}
+			}
+		}
+		main = main.replaceAll("\\s+", " ").trim();
+		secundary = secundary.trim();
+		if(secundary.equals(""))
+			secundary = null;
+		
+		//try second options: split a word with /
+		if(secundary == null) {
+			if (text.contains("/")) {
+				main = "";
+				secundary = "";
+				String[] parts = text.split("\\s");
+				for(String part: parts) {
+					if(part.contains("/")) {
+						String words[] = part.split("/");
+						if(words.length == 2) {
+							main += words[0] + " ";
+							secundary += words[1] + " ";
+						} else {
+							main += part + " ";
+							secundary += part + " ";
+						}
+					} else {
+						main += part + " ";
+						secundary += part + " ";
+					}
+				}
+				main = main.trim();
+				secundary = secundary.trim();
+			}
+		}
+		
+		return Pair.of(main, secundary);
+	}
+	
+	public static String normalizeStringForDBpedia(String text) {
+		text = Normalizer.normalize(text, Normalizer.Form.NFKD);
+		text = text.replaceAll("\\p{M}", "");
+		text = text.replaceAll("\\p{Pi}", "'");
+		text = text.replaceAll("\\p{Pf}", "'");
+		
+		return text;
+	}
+	
+	public static String removePunctuation(String text) {
+		text = text.replaceAll("\\p{P}", "");
+		text = text.replaceAll("\\p{Po}", "");
+		
+		return text;
+	}
+	
+	synchronized public static String singularize(String text) {
+		Inflector inflector = Inflector.getInstance();
+		return inflector.singularize(text);
+	}
+	
+	public static Set<String> getDifferentVersionsOfTerm(String term){
+		Set<String> newTerms = new HashSet<String>();
+		String singular = StringUtils.singularize(term);
+		newTerms.add(singular.trim());
+		newTerms.add(singular.toLowerCase().trim());
+		newTerms.add(singular.toUpperCase().trim());
+		term = StringUtils.normalizeStringForDBpedia(term.trim());
+		newTerms.add(term.trim());
+		newTerms.add(term.toLowerCase().trim());
+		newTerms.add(term.toUpperCase().trim());
+		newTerms.add(StringUtils.singularize(term));
+		term = StringUtils.removePunctuation(term.trim());
+		newTerms.add(term.trim());
+		newTerms.add(term.toLowerCase().trim());
+		newTerms.add(term.toUpperCase().trim());
+		newTerms.add(StringUtils.singularize(term));
+		
+		return newTerms;
+	}
+	
+	public static void main (String[] args) {
+		//StringUtils.singular("Analysis of variance (ANOVA) <> definition of");
+		//System.out.println(StringUtils.separateString("point estimate/stimator"));
+		//System.out.println(StringUtils.separateString("Probability density function (pdf) is c (casa) 45"));
+//		List<String> l = new ArrayList<String>();
+//		l.add("casa");
+//		l.add("papel");
+//		System.out.println(StringUtils.getPermutations(l));
+	}
+	
 
 }

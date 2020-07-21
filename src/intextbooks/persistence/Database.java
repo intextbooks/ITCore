@@ -13,6 +13,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,6 +30,7 @@ import com.mchange.v2.c3p0.ComboPooledDataSource;
 import intextbooks.Configuration;
 import intextbooks.SystemLogger;
 import intextbooks.content.ContentManager;
+import intextbooks.content.extraction.buildingBlocks.structure.IndexElement;
 import intextbooks.content.models.BookStatus;
 import intextbooks.content.models.formatting.CoordinatesContainer;
 import intextbooks.content.models.formatting.lists.ListingContainer;
@@ -560,14 +562,13 @@ public class Database {
 		return databaseId;
 	}
 	
-	synchronized public void addIndexLocationEntry(Integer index_id, Integer page_index, Integer page_number, Integer segment) {
+	synchronized public void addCrossreferenceToEntry(Integer index_id, Byte type, Integer crossreference_id) {
 		try {
 			conn = getConnectionFromPool();
-			preStmt = conn.prepareStatement("INSERT INTO _indexLocation (index_id, page_index, page_number, segment) VALUES(?,?,?,?)");
-			preStmt.setInt(1, index_id);
-			preStmt.setInt(2, page_index);
-			preStmt.setInt(3, page_number);
-			preStmt.setInt(4, segment);
+			preStmt = conn.prepareStatement("UPDATE _indexCatalog SET cross_type =?, cross_id =? WHERE id =?;");
+			preStmt.setInt(1, type);
+			preStmt.setInt(2, crossreference_id);
+			preStmt.setInt(3, index_id);
 			preStmt.executeUpdate();
 			preStmt.close();
 		} catch (SQLException e) {
@@ -576,6 +577,32 @@ public class Database {
 			 try { if (preStmt != null) preStmt.close(); } catch (Exception e) {};
 			 try { if (conn != null) conn.close(); } catch (Exception e) {};
 		}
+	}
+	
+	synchronized public int addIndexLocationEntry(Integer index_id, Integer page_index, Integer page_number, Integer segment) {
+		int databaseId = 0;
+		try {
+			conn = getConnectionFromPool();
+			String[] returnId = { "id" };
+			preStmt = conn.prepareStatement("INSERT INTO _indexLocation (index_id, page_index, page_number, segment) VALUES(?,?,?,?)", returnId);
+			preStmt.setInt(1, index_id);
+			preStmt.setInt(2, page_index);
+			preStmt.setInt(3, page_number);
+			preStmt.setInt(4, segment);
+			preStmt.executeUpdate();
+			try (ResultSet generatedKeys = preStmt.getGeneratedKeys()) {
+	            if (generatedKeys.next()) {
+	            	databaseId = generatedKeys.getInt(1);
+	            }
+	        }
+			preStmt.close();
+		} catch (SQLException e) {
+			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
+		}finally{
+			 try { if (preStmt != null) preStmt.close(); } catch (Exception e) {};
+			 try { if (conn != null) conn.close(); } catch (Exception e) {};
+		}
+		return databaseId;
 	}
 	
 	synchronized public int addIndexTextEntry(String text) {
@@ -653,7 +680,7 @@ public class Database {
 		}
 	}
 	
-	synchronized public void addIndexSentenceEntry(Integer index_id, Integer page_index, String sentence_text) {
+	synchronized public void addIndexSentenceEntry(Integer location_id, String sentence_text) {
 		int sentence_id = 0;
 		try {
 			conn = getConnectionFromPool();
@@ -666,10 +693,9 @@ public class Database {
 	            	sentence_id = generatedKeys.getInt(1);
 	            }
 	        }
-			preStmt = conn.prepareStatement("INSERT INTO _indexSentence (index_id, page_index, sentence_id) VALUES(?,?,?)");
-			preStmt.setInt(1, index_id);
-			preStmt.setInt(2, page_index);
-			preStmt.setInt(3, sentence_id);
+			preStmt = conn.prepareStatement("INSERT INTO _indexSentence (sentence_id, location_id) VALUES(?,?)");
+			preStmt.setInt(1, sentence_id);
+			preStmt.setInt(2, location_id);
 			preStmt.executeUpdate();
 			preStmt.close();
 		} catch (SQLException e) {
@@ -855,8 +881,6 @@ public class Database {
 		
 		return result;
 	}
-	
-	
 	
 	synchronized public void addIndexElement(String bookID, String indexName,List<Integer> segments, List<Integer> indices, List<Integer> pages, boolean artificial){
 		try {
@@ -1359,20 +1383,57 @@ public class Database {
 		
 		try {
 			conn = getConnectionFromPool();
-			preStmt = conn.prepareStatement("SELECT id, key_name, label, full_label, concept_name FROM _indexCatalog WHERE content_id = ?");
+			preStmt = conn.prepareStatement("SELECT id, key_name, label, full_label, concept_name, cross_type, cross_id  FROM _indexCatalog WHERE content_id = ?");
 			preStmt.setString(1, bookID);
 			ResultSet res = preStmt.executeQuery();
 			while(res.next()) {
-				String[] temp = new String[5];
+				String[] temp = new String[7];
 				temp[0] = res.getString("id");
 				temp[1] = res.getString("key_name");
 				temp[2] = res.getString("label");
 				temp[3] = res.getString("full_label");
 				temp[4] = res.getString("concept_name");
+				temp[5] = res.getString("cross_type");
+				temp[6] = res.getString("cross_id");
 				result.add(temp);
 			}
 			return result;
 			
+		} catch (SQLException e) {
+			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
+			return null;
+		}finally{
+			 try { if (preStmt != null) preStmt.close(); } catch (Exception e) {};
+			 try { if (conn != null) conn.close(); } catch (Exception e) {};
+		}	
+	}
+	
+	synchronized public Map<String, List<Integer>> getListOfIndicesAndPages(String bookID){
+		Map<String, List<Integer>> result = new HashMap<String, List<Integer>>();
+		
+		try {
+			conn = getConnectionFromPool();
+			preStmt = conn.prepareStatement("SELECT key_name, label, page_number from _indexCatalog c, _indexLocation l " + 
+					"where c.id = l.index_id and content_id = ?");
+			preStmt.setString(1, bookID);
+			ResultSet res = preStmt.executeQuery();
+			while(res.next()) {
+				String key_name = res.getString("key_name");
+				String label = res.getString("label");
+				int page_number = res.getInt("page_number");
+				
+				String key = label != null ? label : key_name.replace(" <> ", " ");
+				key = key.toLowerCase();
+				
+				List<Integer> pages = result.get(key);
+				if(pages == null) {
+					pages = new ArrayList<Integer>();
+				}
+				pages.add(page_number);
+				result.put(key, pages);
+
+			}
+			return result;		
 		} catch (SQLException e) {
 			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
 			return null;
@@ -1428,6 +1489,121 @@ public class Database {
 			 try { if (preStmt != null) preStmt.close(); } catch (Exception e) {};
 			 try { if (conn != null) conn.close(); } catch (Exception e) {};
 		}
+	}
+	
+	
+	synchronized public List<IndexElement> getIndexAsIndexElements(String bookID){
+		List<IndexElement> result = new ArrayList<IndexElement>();
+		HashMap<Integer, IndexElement> elements = new HashMap<Integer, IndexElement>();
+		Connection connLoc = null;
+		PreparedStatement preStmtLoc = null;
+		
+		try {
+			conn = getConnectionFromPool();
+			//preStmt = conn.prepareStatement("SELECT * FROM _indexCatalog WHERE content_id = ?;");
+			preStmt = conn.prepareStatement("SELECT * FROM _indexCatalog as c, _indexLocation as l WHERE c.id = l.index_id AND content_id = ?;");
+			preStmt.setString(1, bookID);
+			ResultSet res = preStmt.executeQuery();
+			
+			Integer previousId = null;
+			Integer indexId = null;
+			Integer parentId = null;
+			String indexKey = null;
+			Boolean isIndexArtifical = null;
+			String[] indexParts = null;
+			String crossType = null;
+			Integer crossId = null;
+			List<Pair<Integer, Integer>> pages = new ArrayList<Pair<Integer, Integer>>();
+			Map<Integer,List<Integer>> pageSegments = new HashMap<Integer,List<Integer>>();
+			//List<Integer> indexPIndices = new ArrayList<Integer>();
+			//List<Integer> indexPNumbers = new ArrayList<Integer>();
+			//List<Integer> indexPSegments= new ArrayList<Integer>();
+			
+			//first
+			if(res.next()) {
+				indexId = res.getInt("id");
+				previousId = indexId;
+				parentId = res.getInt("parent_id");
+				indexKey = res.getString("key_name");
+				isIndexArtifical = res.getBoolean("artificial");
+				crossType = res.getString("cross_type");
+				crossId = res.getInt("cross_id");
+				indexParts = indexKey.split(" <> ");
+				pages = new ArrayList<Pair<Integer, Integer>>();
+				pageSegments = new HashMap<Integer,List<Integer>>();
+				Pair<Integer, Integer> page = Pair.of(res.getInt("page_number"), res.getInt("page_index"));
+				pages.add(page);
+				List<Integer> list = new ArrayList<Integer>();
+				list.add(res.getInt("segment"));
+				pageSegments.put(res.getInt("page_number"), list);
+			}
+			
+			while(res.next()) {
+				indexId = res.getInt("id");
+		
+				if(previousId.equals(indexId)) {
+					//continue getting info
+					Pair<Integer, Integer> page = Pair.of(res.getInt("page_number"), res.getInt("page_index"));
+					if(!pages.contains(page))
+						pages.add(page);
+					List<Integer> list = pageSegments.get(res.getInt("page_number"));
+					if(list == null)
+						list = new ArrayList<Integer>();
+					list.add(res.getInt("segment"));
+					pageSegments.put(res.getInt("page_number"), list);
+				} else {
+					//store old index term
+					IndexElement element = new IndexElement(indexKey, null, Arrays.asList(indexParts), null, pages,isIndexArtifical, null);
+					element.setDatabaseId(previousId);
+					element.setParentDatabaseId(parentId);
+					element.setPageSegments(pageSegments);
+					if(crossId != null && crossId != 0) {
+						element.addCrossreferenceInformation(crossType, null);
+						element.setCrossDatabaseId(crossId);
+					}
+					
+					result.add(element);
+					elements.put(previousId, element);
+					
+					//get initial info of new index term
+					parentId = res.getInt("parent_id");
+					indexKey = res.getString("key_name");
+					isIndexArtifical = res.getBoolean("artificial");
+					crossType = res.getString("cross_type");
+					crossId = res.getInt("cross_id");
+					indexParts = indexKey.split(" <> ");
+					pages = new ArrayList<Pair<Integer, Integer>>();
+					pageSegments = new HashMap<Integer,List<Integer>>();
+					Pair<Integer, Integer> page = Pair.of(res.getInt("page_number"), res.getInt("page_index"));
+					pages.add(page);
+					List<Integer> list = new ArrayList<Integer>();
+					list.add(res.getInt("segment"));
+					pageSegments.put(res.getInt("page_number"), list);
+				}	
+				previousId = indexId;
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
+			return new ArrayList<IndexElement>();
+		} finally{
+			 try { if (preStmt != null) preStmt.close(); } catch (Exception e) {};
+			 try { if (conn != null) conn.close(); } catch (Exception e) {};
+			 try { if (preStmtLoc != null) preStmtLoc.close(); } catch (Exception e) {};
+			 try { if (connLoc != null) connLoc.close(); } catch (Exception e) {};
+		}	
+		
+		//add parent and crossreferences
+		for(IndexElement element: result) {
+			if(element.getParentDatabaseId() != null && element.getParentDatabaseId() != 0) {
+				element.setParent(elements.get(element.getParentDatabaseId()));
+				element.setParentId(elements.get(element.getParentDatabaseId()).getKey());
+			}
+			if(element.getCrossDatabaseId() != null && element.getCrossDatabaseId() != 0) {
+				element.setCrossreference(elements.get(element.getCrossDatabaseId()));
+			}
+		}
+		
+		return result;
 	}
 	
 	
@@ -1520,6 +1696,24 @@ public class Database {
 		}	
 	}	
 	
+	synchronized public void deleteRelations(String originBookID, String targetBookID) throws SQLException {	
+		try {
+			conn = getConnectionFromPool();
+			String sqlCreate = "DELETE FROM "+originBookID+"_relations "+
+					"WHERE toBook = ? ";
+	
+			preStmt = conn.prepareStatement(sqlCreate);
+			preStmt.setString(1, targetBookID);
+			preStmt.executeUpdate();
+			
+		} catch (SQLException e) {
+			e.printStackTrace();SystemLogger.getInstance().log(e.toString());
+		} finally {
+			try { if (preStmt != null) preStmt.close(); } catch (Exception e) {};
+			try { if (conn != null) conn.close(); } catch (Exception e) {};
+		}
+	}
+		
 	synchronized public void addFormatEntry(String parentBook, String pageIndex, int lineNumber, int wordPos,
 			Integer formatKey, CoordinatesContainer coords){
 			
@@ -1703,6 +1897,36 @@ public class Database {
 		
 		return null;
 	}
+	
+	synchronized public List<Integer> getSegmentsOfConcept(String conceptName, String bookID) {
+		
+		try {
+			
+			conn = getConnectionFromPool();
+			preStmt = conn.prepareStatement("SELECT distinct(segment) from _indexCatalog c " + 
+					"INNER JOIN _indexLocation l on (c.id = l.index_id) " + 
+					"WHERE content_id = ? and concept_name = ? " +
+					"ORDER BY segment;");
+			preStmt.setString(1, bookID);
+			preStmt.setString(2, conceptName);
+			ResultSet res = preStmt.executeQuery();
+			
+			List<Integer> resList = new ArrayList<Integer>();
+			
+			while (res.next())
+				resList.add(Integer.valueOf(res.getString("segment")));
+			
+			return resList;
+			
+		} catch (SQLException e) {
+			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
+		} finally {
+			try { if (preStmt != null) preStmt.close(); } catch (Exception e) {};
+			try { if (conn != null) conn.close(); } catch (Exception e) {};
+		}
+		
+		return null;
+	}
 
 	/*OLD*/
 //	//@i.alpizarchacon: DISTINCT added
@@ -1845,7 +2069,7 @@ public class Database {
 		
 	}
 	
-	synchronized public ArrayList<String> getAggregatedConcepts(String sourceBookID, ArrayList<Integer> allSegments) {
+	synchronized public ArrayList<String> getAggregatedConcepts(String sourceBookID, Collection<Integer> allSegments) {
 		
 		try {
 			
@@ -1879,17 +2103,20 @@ public class Database {
 		
 	}
 	
-	synchronized public ArrayList<Pair<String,Integer>> getAggregatedConceptsWithFreq(String sourceBookID, ArrayList<Integer> allSegments) {
-		
+	synchronized public Pair<ArrayList<Pair<String,Integer>>,ArrayList<Pair<String,Integer>>>  getAggregatedConceptsWithFreq(String sourceBookID, Collection<Integer> allSegments) {
 		try {
 			
 			conn = getConnectionFromPool();
-			preStmt = conn.prepareStatement("SELECT src.concept_name as name, count(src.concept_name) as freq " + 
+			
+			preStmt = conn.prepareStatement("SELECT name, COUNT(name) as freq " + 
+					"FROM (SELECT src.concept_name as name " + 
 					"FROM _indexLocation as locSRC, _indexCatalog AS src " + 
 					"WHERE src.content_id = ? " + 
-					"  AND src.id = locSRC.index_id " + 
-					"  AND locSRC.segment IN (" + StringUtils.join(allSegments, ',') + ")" +
-					" group by concept_name;");
+					"AND src.id = locSRC.index_id " + 
+					"AND locSRC.segment IN (" + StringUtils.join(allSegments, ',') + ")" +
+					"group by concept_name, page_number, segment) g " + 
+					"group by name " + 
+					"order by name;");
 			
 			preStmt.setString(1, sourceBookID);
 			ResultSet res = preStmt.executeQuery();
@@ -1903,7 +2130,52 @@ public class Database {
 				resList.add(Pair.of(concept, freq));
 			}
 			
-			return resList;
+			//ONLY parent elements	
+			ArrayList<Pair<String,Integer>> resListParents = new ArrayList<Pair<String,Integer>>();
+//			preStmt = conn.prepareStatement("SELECT name, COUNT(name) as freq " + 
+//					"FROM (SELECT iC.concept_name as name " + 
+//					"FROM _indexLocation as locSRC, _indexCatalog AS src " + 
+//					"INNER JOIN _indexCatalog iC on src.parent_id  = iC.id " + 
+//					"WHERE src.content_id = ? " + 
+//					"AND src.id = locSRC.index_id " + 
+//					"AND locSRC.segment IN (" + StringUtils.join(allSegments, ',') + ") " +
+//					"group by src.parent_id, src.concept_name, page_number, segment) g " + 
+//					"group by name " + 
+//					"order by name;");
+			
+			//first level elements + parent of other elements
+			preStmt = conn.prepareStatement("SELECT name, COUNT(name) as freq " + 
+					"FROM (SELECT src.concept_name as name " + 
+					"FROM _indexLocation as locSRC, _indexCatalog AS src " + 
+					"WHERE src.content_id = ? " + 
+					"AND src.id = locSRC.index_id " + 
+					"AND src.parent_id is NULL " + 
+					"AND locSRC.segment IN (" + StringUtils.join(allSegments, ',') + ") " +
+					"group by concept_name, page_number, segment " + 
+					"UNION ALL " + 
+					"SELECT iC.concept_name as name " + 
+					"FROM _indexLocation as locSRC, _indexCatalog AS src " + 
+					"RIGHT JOIN _indexCatalog iC on src.parent_id  = iC.id " + 
+					"WHERE src.content_id = ? " + 
+					"AND src.id = locSRC.index_id " + 
+					"AND locSRC.segment IN (" + StringUtils.join(allSegments, ',') + ") " +
+					"group by src.parent_id, src.concept_name, page_number, segment ) g " + 
+					"group by name " + 
+					"order by name;");
+			
+			preStmt.setString(1, sourceBookID);
+			preStmt.setString(2, sourceBookID);
+			
+			res = preStmt.executeQuery();
+			
+			while (res.next()) {
+				String concept = res.getString("name");
+				Integer freq = res.getInt("freq");
+				
+				resListParents.add(Pair.of(concept, freq));
+			}
+			
+			return Pair.of(resList, resListParents);
 			
 		} catch (SQLException e) {
 			e.printStackTrace();SystemLogger.getInstance().log(e.toString());

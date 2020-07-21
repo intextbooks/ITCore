@@ -119,20 +119,22 @@ public class NERPersonTagger {
 		String s1 = "Patrick Simon  Victor Piché  Alpizar Torres Rojas Amélie A. Gagnon Séverin Dujardin Gérin-Lajoie Jean-Claude Philippon" +
 		"Reinier Huitink Marlijn van Vreden Ian Montes Axel Alemán Elena Quesada y Amaya Chicote";
 		String s2 = "Ricard Meneu Salvador Peiró";
+		String s3 = "ball bearing data";
+		String s4 = "Billingsley P.";
 		// annnotate the document
 		
 
 			 
-			 for(String ner: NERPersonTagger.getInstance(LanguageEnum.FRENCH).getNerTags(s2)) {
+			 for(String ner: NERPersonTagger.getInstance(LanguageEnum.ENGLISH).getNerTags(s4)) {
 				 System.out.println(ner);
 				 System.out.println();
 				}
 			 
 			 NERPersonTagger.getPersonLabels();
-//			 for(CoreLabel tok: NERPersonTagger.getInstance(LanguageEnum.SPANISH).getTokens(s2)) {
-//				 System.out.println(tok);
-//				 System.out.println();
-//				}
+			 for(CoreLabel tok: NERPersonTagger.getInstance(LanguageEnum.SPANISH).getTokens(s4)) {
+				 System.out.println(tok);
+				 System.out.println();
+				}
 	}
 		
 

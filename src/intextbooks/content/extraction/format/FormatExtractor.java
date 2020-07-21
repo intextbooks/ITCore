@@ -37,6 +37,7 @@ import intextbooks.content.extraction.ExtractorController.resourceType;
 import intextbooks.content.extraction.Utilities.BoundSimilarity;
 import intextbooks.content.extraction.Utilities.StringOperations;
 import intextbooks.content.extraction.Utilities.WordListCheck;
+import intextbooks.content.extraction.buildingBlocks.format.CharacterBlock;
 import intextbooks.content.extraction.buildingBlocks.format.ElementBlock;
 import intextbooks.content.extraction.buildingBlocks.format.Line;
 import intextbooks.content.extraction.buildingBlocks.format.LineDataContainer;
@@ -48,13 +49,12 @@ import intextbooks.content.extraction.buildingBlocks.structure.BookSectionResour
 import intextbooks.content.extraction.buildingBlocks.structure.BookSectionType;
 import intextbooks.content.extraction.buildingBlocks.structure.TOC;
 import intextbooks.content.extraction.buildingBlocks.structure.TextBlock;
-import intextbooks.content.extraction.format.lists.ListExtractor;
-import intextbooks.content.extraction.format.lists.ListExtractorFactory;
 import intextbooks.content.extraction.structure.TableOfContentsExtractor;
 import intextbooks.content.models.formatting.FormattingContainer;
 import intextbooks.content.models.formatting.FormattingContainer.RoleLabel;
 import intextbooks.content.models.formatting.FormattingDictionary;
 import intextbooks.exceptions.BookWithoutPageNumbersException;
+import intextbooks.exceptions.BookWithoutTextPagesException;
 import intextbooks.exceptions.EarlyInterruptionException;
 import intextbooks.exceptions.TOCNotFoundException;
 import intextbooks.ontologie.LanguageEnum;
@@ -109,7 +109,7 @@ public class FormatExtractor{
 	
 	private final String OpenLibraryISBNService = "https://openlibrary.org/api/books?jscmd=data&format=json&bibkeys=ISBN:";
 
-	public FormatExtractor(String resourceID, String filePath, resourceType type) throws IOException, TOCNotFoundException, NullPointerException, BookWithoutPageNumbersException {
+	public FormatExtractor(String resourceID, String filePath, resourceType type) throws IOException, TOCNotFoundException, NullPointerException, BookWithoutPageNumbersException, BookWithoutTextPagesException {
 	
 		File file  = new File(filePath); 
 		
@@ -128,17 +128,6 @@ public class FormatExtractor{
 	            System.err.println( "Error: Undefined document type." );
 			}
 			
-			ListExtractor listExtractor = ListExtractorFactory.createListExtractor(resourceID, type);
-			
-			if (listExtractor != null) {
-				
-				SystemLogger.getInstance().log("Start list extraction");
-				listExtractor.extractLists(this.getPagesAsResourceUnits());
-				listExtractor.persistLists();
-				SystemLogger.getInstance().log("List extraction ended");
-				
-			}
-			
 			SystemLogger.getInstance().log("Format extraction ended");
 			
 			document.close();
@@ -153,7 +142,7 @@ public class FormatExtractor{
 		}
 	}
 
-	public void processBook (String bookID, PDDocument document) throws IOException, TOCNotFoundException, NullPointerException, BookWithoutPageNumbersException{
+	public void processBook (String bookID, PDDocument document) throws IOException, TOCNotFoundException, NullPointerException, BookWithoutPageNumbersException, BookWithoutTextPagesException{
 
 		//Lang of Textbook
 		LanguageEnum lang = cm.getBookLanguage(bookID);
@@ -173,12 +162,18 @@ public class FormatExtractor{
 		pages = textExtractor.convertToPage();
 		RandomAccessToElements.getInstance().setPages(pages);
 		
+		SystemLogger.getInstance().debug("pages: " + pages);
+		SystemLogger.getInstance().debug("# of pages: " + pages.size());
+		
 //		/* TESTING */
-//		for(Line l: pages.get(18).getLines()) {
+//		for(Line l: pages.get(5).getLines()) {
 //			//System.out.println("L: " + l.getText() + " Y: " + l.getPositionY() + " Height: " + l.getLineHeight() + " FS: "  + l.getFontSize());
 //			System.out.println("L: " + l.getText() + " SX: " + l.getStartPositionX() + " EX: " + l.getEndPositionX() + " Y: " + l.getPositionY() + " BOLD: " + l.isBold() + " Size: " + l.size());
 //			for(Text w : l.getWords()) {
 //				System.out.println("\tw: " + w.getText() + " SX: " + w.getStartPositionX() + " EX: " + w.getEndPositionX() + " BOLD: " + w.isBold());
+//				for(CharacterBlock cb: w.getCharacters()) {
+//					System.out.println("\\ttc: " + cb.getTextPosition().getUnicode() + " num: " + ((int)cb.getTextPosition().getUnicode().toCharArray()[0]));
+//				}
 //			}
 //		}
 //		System.exit(0);
@@ -192,6 +187,11 @@ public class FormatExtractor{
 		this.pageWidth = textExtractor.getWidth();
 		
 		SystemLogger.getInstance().log("Resource text process ended");
+		
+		//check pages if there is no content
+		SystemLogger.getInstance().log("Checking pages NULL");
+		checkNullPages();
+		SystemLogger.getInstance().log("Checking pages NULL ended");
 		
 		//get metadata
 		SystemLogger.getInstance().log("Getting metadata");
@@ -208,7 +208,7 @@ public class FormatExtractor{
 		
 		//get where the page numbers are at a page (top, bottom), get the index of the TOC page, and page number of first chapter (index and page number)
 		SystemLogger.getInstance().log("Initial conquest process started");
-		InitialConquest();	
+		initialConquest();	
 		SystemLogger.getInstance().log("Initial conquest process ended");
 		
 		//setting in each page (index page, physical number) the page number (logical number). Numbers at the beginning of pages are corrected. 
@@ -258,7 +258,7 @@ public class FormatExtractor{
 //		System.out.println("@@@TOC ENTRIES ------ after extractTOC");
 //		while(it.hasNext()) {
 //			TOC t = it.next();
-//			System.out.println("^T: " + t.getTitleText() + " P: " + t.getPageNumber() + t.getFontSize());
+//			System.out.println("^T: " + t.getTitleText() + " P: " + t.getPageNumber() + " " + t.getFontSize());
 //			//System.out.println("^^PosX" + t.getPosX());
 //			//System.out.println("");
 //		}	
@@ -270,11 +270,11 @@ public class FormatExtractor{
 //		int i = 0;
 //		while(it.hasNext()) {
 //			TOC t = it.next();
-//			System.out.println("#:" + i++ + ": " + t.getTitleText() + " -pageNumber:" + t.getPageNumber() + " -chapter: " + t.getChapterPrefix());
+//			System.out.println("#:" + i++ + ": " + t.getTitleText() + " -pageNumber:" + t.getPageNumber() + " -chapter: " + t.getChapterPrefix() + " -section" + t.getSection());
 ////			System.out.println("*Title: " + t.getTitleText());
 ////			System.out.println("**PageIndex: " + t.getPageIndex());
 ////			System.out.println("**PageNumber: " + t.getPageNumber());
-////			System.out.println("**PosX: " + t.getPosX());
+//			System.out.println("\t**PosX: " + t.getPosX());
 ////			System.out.println("**FontSize: " + t.getFontSize());
 ////			System.out.println("**Bold: " + t.isBold());
 //		}
@@ -572,7 +572,7 @@ public class FormatExtractor{
 	 * @throws BookWithoutPageNumbersException 
 	 * 
 	 * */
-	private void InitialConquest() throws TOCNotFoundException, BookWithoutPageNumbersException {
+	private void initialConquest() throws TOCNotFoundException, BookWithoutPageNumbersException {
 		
 		
 
@@ -591,12 +591,12 @@ public class FormatExtractor{
 		
 		short lookupRange = (short) (((pages.size()/2)+10 < pages.size()) ? (pages.size()/2)+10 : pages.size());
 
-//		/*TESTING*/
-//		System.out.println("# pages: " + pages);
-//		System.out.println("# pages size: " + pages.size());
-//		System.out.println("# lookupRange: " + lookupRange);
-//		System.out.println("# starting: " + pages.size()/2);
-//		/*TESTING*/
+		/*TESTING*/
+		System.out.println("# pages: " + pages);
+		System.out.println("# pages size: " + pages.size());
+		System.out.println("# lookupRange: " + lookupRange);
+		System.out.println("# starting: " + pages.size()/2);
+		/*TESTING*/
 
 		for(short i= (short) (pages.size()/2) ; i + 2 < lookupRange; i++){
 			if(pages.get(i)!=null){
@@ -938,6 +938,9 @@ public class FormatExtractor{
 				firstChapterStartIndex++;
 			}
 		}
+		
+		SystemLogger.getInstance().debug("firstChapterStartIndex: " + firstChapterStartIndex);
+
 	}
 	
 	// not used
@@ -998,7 +1001,10 @@ public class FormatExtractor{
 //				SystemLogger.getInstance().log("@ pages.get(i).getLineAt(lineNum): " + pages.get(i).getLineAt(lineNum));
 //				/*TESTING*/
 				
-				if(StringUtils.isNumeric(pages.get(i).getLineAt(lineNum).getWordAt(0).getText())
+				if(pages.get(i).getLineAt(lineNum).getFontSize() > (this.textBodyFontSize * 0.5 + this.textBodyFontSize)) {
+					actualN = -1;
+					//SystemLogger.getInstance().log(" ... setting 0: " + pages.get(i).getPageNumber());
+				} else if(StringUtils.isNumeric(pages.get(i).getLineAt(lineNum).getWordAt(0).getText())
 						&& BoundSimilarity.isInBound(pages.get(i).getLineAt(lineNum).getPositionY(), pageNumLine.linePosY, pageNumLine.fontSize, pages.get(i).getLineAt(lineNum).getFontSize(), 0.6f)){
 					
 					actualN = Integer.parseInt(pages.get(i).getLineAt(lineNum).getWordAt(0).getText());
@@ -1068,7 +1074,7 @@ public class FormatExtractor{
 					pages.get(i).setSpecialPageNumbering(true);
 					
 					/*TESTING*/
-					//SystemLogger.getInstance().log(" ... no #: " + pages.get(i).getPageNumber());
+					//SystemLogger.getInstance().log(" ... no #: " + i);
 					/*TESTING*/
 					
 				} else {
@@ -1077,6 +1083,7 @@ public class FormatExtractor{
 			}	
 		}
 
+		
 		crossCheckingPageNumbers(bookID);
 		
 //		/*TESTING*/
@@ -1130,15 +1137,33 @@ public class FormatExtractor{
 		return false;
 	}
 	
-	private void crossCheckingPageNumbers(String bookID){
-		
-		int lastOne = -1;
+	private int getBiggestPageNumber() {
+		int biggest = -1;
 		for(int i = pages.size() -1; i >= firstChapterStartIndex; i--) {
 			if(pages.get(i) != null) {
-				if(pages.get(i).getSpecialPageNumbering()) {
+				if(pages.get(i).getPageNumber() > biggest) {
+					biggest = pages.get(i).getPageNumber();
+				}
+			}
+		}
+		return biggest;
+	}
+	
+	private void crossCheckingPageNumbers(String bookID){
+		
+		int lastOne = getBiggestPageNumber();
+		for(int i = pages.size() -1; i >= firstChapterStartIndex; i--) {
+			if(pages.get(i) != null) {
+				if(pages.get(i).getSpecialPageNumbering()) {	
 					int candidate = lastOne -1;
 					int candidate2 = lastOne - 2;
 					int candidate3 = lastOne - 3;
+					if(i == pages.size() -1) {
+						 candidate = lastOne +1;
+						 candidate2 = lastOne + 2;
+						 candidate3 = lastOne + 3;
+					} 
+					
 					if(!pageTaken(candidate) && extensiveLooking(pages.get(i), candidate)) {
 						pages.get(i).setPageNumber(candidate);
 						pages.get(i).setSpecialPageNumbering(false);
@@ -1182,8 +1207,24 @@ public class FormatExtractor{
 				SystemLogger.getInstance().debug("Page: " + i + " PN: " + pages.get(i).getPageNumber() + " PI: " +  pages.get(i).getPageIndex());
 			}
 		}
-
 		this.cm.setPageNumbersOfBook(bookID, pageNumbers);
+	}
+	
+	private void checkNullPages() throws BookWithoutTextPagesException {
+		int totalNull = 0;
+		for(Page page: pages) {
+			if(page == null) {
+				totalNull++;
+			} else {
+				if(page.getLines() != null && page.getLines().size() <= 0) {
+					totalNull++;
+				}
+			}
+		}
+		
+		if(totalNull >= (pages.size() * 0.9)) {
+			throw new BookWithoutTextPagesException("Book without text pages");
+		}
 	}
 	
 	private void obtainMetadata() {
@@ -1201,8 +1242,13 @@ public class FormatExtractor{
 							if((j+1) <  line.size()) {
 								if(line.getWordAt(j+1).getText().matches(StringOperations.getRegexISBN())) {
 									
+									SystemLogger.getInstance().debug("ISBN: " + line.getWordAt(j+1).getText());
 									String url = OpenLibraryISBNService + line.getWordAt(j+1).getText();
+									System.out.println(url);
 									String jsonString = SimpleHTTPRequest.doGetRequest(url);
+									 if(jsonString == null) {
+										 jsonString = "{}"; 
+									 }
 									System.out.println(jsonString);
 									JSONParser parser = new JSONParser();
 									try {
@@ -1211,6 +1257,7 @@ public class FormatExtractor{
 											JSONObject map = (JSONObject) obj.values().toArray()[0];
 											//title
 											metadata.put("title", (String) map.get("title"));
+											SystemLogger.getInstance().debug(" title: " + metadata.get("title"));
 											metadata.put("subtitle", (String) map.get("subtitle"));
 											metadata.put("publish_date", (String) map.get("publish_date"));
 											Object authorsObj = map.get("authors");

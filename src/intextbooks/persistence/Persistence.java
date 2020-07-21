@@ -59,6 +59,7 @@ import org.xml.sax.SAXException;
 import intextbooks.Configuration;
 import intextbooks.ConfigurationLoader;
 import intextbooks.SystemLogger;
+import intextbooks.content.extraction.buildingBlocks.structure.IndexElement;
 import intextbooks.content.models.Book;
 import intextbooks.content.models.BookStatus;
 import intextbooks.content.models.formatting.CoordinatesContainer;
@@ -83,16 +84,12 @@ import java.util.Date;
 public class Persistence {
 	private static Persistence instance = null;
 	
-	
 	private static Disc disc;
 	private static Database db;
-	
-	
 	
 	protected Persistence() {
 		disc = Disc.getInstance();
 		db = Database.getInstance();
-		
 	}
 	
 	public static Persistence getInstance() {
@@ -248,6 +245,10 @@ public class Persistence {
 		return db.getIndexTermsOfConcept(conceptName, bookID);
 	}
 	
+	public List<Integer> getSegmentsOfConcept(String bookID, String conceptName) throws SQLException {
+		return db.getSegmentsOfConcept(conceptName, bookID);
+	}
+	
 	public List<Integer> getIndexConceptMappingStatistics(String bookID) throws SQLException {
 		return db.getIndexConceptMappingStatistics(bookID);
 	}
@@ -266,6 +267,10 @@ public class Persistence {
 	
 	public List<String[]> getListOfIndicesWithPageForBookV2(String bookID) {
 		return db.getListOfIndicesWithPageForBookV2(bookID);
+	}
+	
+	public Map<String, List<Integer>> getListOfIndicesAndPages(String bookID) {
+		return db.getListOfIndicesAndPages(bookID);
 	}
 	
 	public List<String> getListOfUsedConceptNames(String bookID) throws SQLException {
@@ -296,6 +301,11 @@ public class Persistence {
 		return db.doesRelationExist(parentBook, segmentID, referedBookID, referedSegment);
 	}	
 	
+	public void deleteRelations(String originBookID, String targetBookID) throws SQLException {
+		db.deleteRelations(originBookID, targetBookID);
+	}
+
+	
 	public Integer getWordFormatting(String parentBook, int pageNumber, int lineNumber, int wordPos) {
 		return db.getWordFormatting(parentBook, pageNumber, lineNumber, wordPos);
 	}
@@ -316,11 +326,11 @@ public class Persistence {
 		return db.getSemanticMatchingSegments(sourceBookID, targetBookID);
 	}
 	
-	public ArrayList<String> getAggregatedConcepts(String sourceBookID, ArrayList<Integer> allSegments) {
+	public ArrayList<String> getAggregatedConcepts(String sourceBookID, Collection<Integer> allSegments) {
 		return db.getAggregatedConcepts(sourceBookID, allSegments);
 	}
 	
-	public ArrayList<Pair<String,Integer>> getAggregatedConceptsWithFreq(String sourceBookID, ArrayList<Integer> allSegments) {
+	public Pair<ArrayList<Pair<String,Integer>>,ArrayList<Pair<String,Integer>>> getAggregatedConceptsWithFreq(String sourceBookID, Collection<Integer> allSegments) {
 		return db.getAggregatedConceptsWithFreq(sourceBookID, allSegments);
 	}
 	
@@ -329,8 +339,12 @@ public class Persistence {
 		return db.addIndexCatalogEntry(content_id, parent_id, key, label, full_name, artificial);
 	}
 	
-	public void addIndexLocationEntry(Integer index_id, Integer page_index, Integer page_number, Integer segment) {
-		db.addIndexLocationEntry(index_id, page_index, page_number, segment);
+	public void addCrossreferenceToEntry(Integer index_id, Byte type, Integer crossreference_id) {
+		db.addCrossreferenceToEntry(index_id, type, crossreference_id);
+	}
+	
+	public int addIndexLocationEntry(Integer index_id, Integer page_index, Integer page_number, Integer segment) {
+		return db.addIndexLocationEntry(index_id, page_index, page_number, segment);
 	}
 	
 	public void addIndexNounEntry(Integer index_id, String noun_text) {
@@ -341,8 +355,8 @@ public class Persistence {
 		db.addIndexPartEntry(index_id, part_text);
 	}
 	
-	public void addIndexSentenceEntry(Integer index_id, Integer page_index, String sentence_text) {
-		db.addIndexSentenceEntry(index_id, page_index, sentence_text);
+	public void addIndexSentenceEntry(Integer location_id, String sentence_text) {
+		db.addIndexSentenceEntry(location_id, sentence_text);
 	}
 	
 	public Map<Integer, Set<String>> getPagesAndSentecesForIndex(String content_id) {
@@ -351,6 +365,10 @@ public class Persistence {
 	
 	public void addIndexElement(String bookID, String indexName,List<Integer> segments, List<Integer> indices, List<Integer> pages, boolean artificial) {
 		db.addIndexElement(bookID, indexName, segments, indices, pages, artificial);
+	}
+	
+	public List<IndexElement> getIndexAsIndexElements(String bookID){
+		return db.getIndexAsIndexElements(bookID);
 	}
 	
 	/*------------ USER MANAGEMENT ---------- */
@@ -435,6 +453,10 @@ public class Persistence {
 		return disc.loadStructure(bookID);
 	}
 	
+	public Segment loadTEIStructure(String bookID) {
+		return disc.loadTEIStructure(bookID);
+	}
+	
 	public File loadParagraphFile(String bookID, int index) {
 		return disc.loadParagraphFile(bookID, index);
 	}
@@ -445,6 +467,10 @@ public class Persistence {
 
 	public void storeSegment(String bookID, int index, String content){
 		disc.storeSegment(bookID, index, content);
+	}
+	
+	public void storeSegment(String bookID, String name, String content){
+		disc.storeSegment(bookID, name, content);
 	}
 	
 	public void storeExtractonTempInfo(String bookID, String fileName, String content){		
@@ -556,6 +582,10 @@ public class Persistence {
 	
 	public ArrayList<String[]> getConceptsInQuestion(String runId){
 		return db.getItemsInQuestion(runId);
+	}
+	
+	public void grantExecutionRights(String filePath) {
+		disc.grantExecutionRights(filePath);
 	}
 
 

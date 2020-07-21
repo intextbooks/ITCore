@@ -8,6 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import intextbooks.ontologie.LanguageEnum;
+import intextbooks.tools.utility.StringUtils;
 
 public class WordListCheck {
 
@@ -25,16 +26,20 @@ public class WordListCheck {
 	
 	private static ArrayList<String> specialCaseExample = new ArrayList<String>();
 	
+	private static ArrayList<String> specialCaseSummary = new ArrayList<String>();
+	
 	private static ArrayList<String> specialCasesPart = new ArrayList<String>();
 	private static ArrayList<String> specialCasesComplete = new ArrayList<String>();
 	
 	private static HashMap<LanguageEnum,String> andForList = new HashMap<LanguageEnum,String>();
 	
-	private static HashMap<LanguageEnum,String> cont = new HashMap<LanguageEnum,String>();
+	private static ArrayList<String> cont = new ArrayList<String>();
 	
 	private static ArrayList<String> exercises = new ArrayList<String>();
 	
 	private static ArrayList<String> appendix = new ArrayList<String>();
+	
+	private static ArrayList<String> bibliography = new ArrayList<String>();
 	
 	private static ArrayList<String> chapter = new ArrayList<String>();
 	
@@ -111,7 +116,9 @@ public class WordListCheck {
 		
 		//*****Index
 		//EN
-		cont.put(LanguageEnum.ENGLISH, "cont.");
+		cont.add("cont.");
+		//cont.add("continued");
+		cont.add("(continued)");
 		
 		//Section Exercise
 		exercises.add("exercises");
@@ -119,6 +126,9 @@ public class WordListCheck {
 		
 		//Appendix
 		appendix.add("appendix");
+		
+		//Bibliography
+		bibliography.add("bibliography");
 		
 		//Chapter title
 		chapter.add("chapter");
@@ -133,7 +143,10 @@ public class WordListCheck {
 		copyRightContains.add("doi.org/");
 		
 		//Example
-		//specialCaseExample.add("example");
+		specialCaseExample.add("example");
+		
+		//Summary
+		specialCaseSummary.add("summary of");
 		
 		//SpecialCases
 		//specialCasesPart.add("data");
@@ -195,7 +208,35 @@ public class WordListCheck {
 			WordListCheck();
 				
 		for(short i = 0 ; i < specialCaseExample .size() ; i++)				
-			if(Arrays.asList(input.split(" ")).contains(specialCaseExample.get(i))) {
+			if(Arrays.asList(input.toLowerCase().split(" ")).contains(specialCaseExample.get(i))) {
+				return true;
+			}			
+		
+		return false;
+	}
+	
+	public static String removeExample(String input) {
+		if(specialCaseExample == null || specialCaseExample .size() < 1)
+			WordListCheck();
+		
+		for(short i = 0 ; i < specialCaseExample .size() ; i++)		{
+			if(input.contains(specialCaseExample.get(i))) {
+				return StringUtils.normalizeWhitespace(input.replace(specialCaseExample.get(i), ""));
+			} else if (input.contains(specialCaseExample.get(i).toLowerCase())) {
+				return StringUtils.normalizeWhitespace(input.replace(specialCaseExample.get(i).toLowerCase(), ""));
+			}
+		}
+		return null;
+	}
+	
+	
+public static boolean containsSummary(String input){
+		
+		if(specialCaseSummary == null || specialCaseSummary .size() < 1)
+			WordListCheck();
+				
+		for(short i = 0 ; i < specialCaseSummary .size() ; i++)				
+			if(input.toLowerCase().contains(specialCaseSummary.get(i))) {
 				return true;
 			}			
 		
@@ -324,8 +365,15 @@ public class WordListCheck {
 		return andForList.get(lang);
 	}
 	
-	public static String getContWord(LanguageEnum lang) {
-		return cont.get(lang);
+	public static boolean isContWord(String input) {
+		if(cont == null || cont .size() < 1)
+			WordListCheck();
+
+		if(cont.contains(input.toLowerCase().trim())) {
+			return true;
+		} else {
+			return false;
+		}
 	}
 	
 	public static boolean isExerciseSection(String input) {
@@ -337,6 +385,29 @@ public class WordListCheck {
 		} else {
 			return false;
 		}
+	}
+	
+	public static boolean isBibliographySection(String input) {
+		if(bibliography == null || bibliography .size() < 1)
+			WordListCheck();
+		
+		if(bibliography.contains(input.toLowerCase().replaceAll("[^a-zA-Z\\s]", ""))) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	
+	public static boolean isExerciseSectionFlexible(String input) {
+		if(exercises == null || exercises .size() < 1)
+			WordListCheck();
+		
+		for(String word: exercises) {
+			if(input.contains(word))
+				return true;
+		}
+		
+		return false;
 	}
 	
 	public static boolean isAppendixSection(String input) {

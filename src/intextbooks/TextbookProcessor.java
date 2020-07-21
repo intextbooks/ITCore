@@ -14,6 +14,7 @@ import intextbooks.SystemLogger;
 import intextbooks.content.ContentManager;
 import intextbooks.content.models.BookStatus;
 import intextbooks.exceptions.BookWithoutPageNumbersException;
+import intextbooks.exceptions.BookWithoutTextPagesException;
 import intextbooks.exceptions.EarlyInterruptionException;
 import intextbooks.exceptions.NoIndexException;
 import intextbooks.exceptions.NotPDFFileException;
@@ -105,7 +106,7 @@ public class TextbookProcessor {
 		this.id = cm.createBook(fullFileName, lang, fileName, checksum, "book", null, senderEmail);
 	}
 	
-	public BookStatus processTextbook() throws NullPointerException, TOCNotFoundException, BookWithoutPageNumbersException, NoIndexException {	
+	public BookStatus processTextbook() throws NullPointerException, TOCNotFoundException, BookWithoutPageNumbersException, NoIndexException, BookWithoutTextPagesException {	
 		return this.cm.processBook(id, fullFileName, lang, fileName, false, "book", null, processReadingLabels, linkWithDBpedia, dbpediaCat, linkToExternalGlossary, splitTextbook, senderEmail);	
 	}
 	
@@ -220,11 +221,12 @@ public class TextbookProcessor {
 	 * @param linkToExternalGlossary true to link tho an external glossary
 	 * @param splitTextbook true to split the textbook in PDF segments and TXT files
 	 * @param senderEmail email of the user who is creating the knowledge model
+	 * @throws BookWithoutTextPagesException 
 	 * @throws IOException
 	 * @throws FileNotFoundException
 	 * @throws NotPDFFileException
 	 */
-	public static void processFullTextbook(String path, LanguageEnum lang, boolean processReadingLabels, boolean linkWithDBpedia, String dbpediaCat, boolean linkToExternalGlossary, boolean splitTextbook, String senderEmail) {
+	public static String processFullTextbook(String path, LanguageEnum lang, boolean processReadingLabels, boolean linkWithDBpedia, String dbpediaCat, boolean linkToExternalGlossary, boolean splitTextbook, String senderEmail) {
 		
 		try {
 			TextbookProcessor tbProcessor = new TextbookProcessor(path, lang, processReadingLabels, linkWithDBpedia, dbpediaCat, linkToExternalGlossary, splitTextbook,  senderEmail);
@@ -238,11 +240,12 @@ public class TextbookProcessor {
 					Persistence.getInstance().updateBookStatus(tbProcessor.getBookId(), bs);
 					SystemLogger.getInstance().log("RESULT: The textbook was processed and the models are stored in the corresponding folder, but there was an error and the Enriched Model or part of it was not created succesfully. ");
 				}
+				return tbProcessor.getBookId();
 				
 			} catch (NullPointerException e) {
 				Persistence.getInstance().updateBookStatus(tbProcessor.getBookId(), BookStatus.Error);
-				
 				SystemLogger.getInstance().log("RESULT: The textbook was not finished processing due to an unknown error.");
+				e.printStackTrace();
 				throw e;
 			} catch (TOCNotFoundException e) {
 				Persistence.getInstance().updateBookStatus(tbProcessor.getBookId(), BookStatus.TOCNotFound);
@@ -256,7 +259,11 @@ public class TextbookProcessor {
 				Persistence.getInstance().updateBookStatus(tbProcessor.getBookId(), BookStatus.NoIndex);
 				SystemLogger.getInstance().log(e.getLocalizedMessage());
 				SystemLogger.getInstance().log("RESULT: The textbook was not finished processing because the textbook does not contain an Index.");
-			}
+			} catch (BookWithoutTextPagesException e) {
+				Persistence.getInstance().updateBookStatus(tbProcessor.getBookId(), BookStatus.NoTextPages);
+				SystemLogger.getInstance().log(e.getLocalizedMessage());
+				SystemLogger.getInstance().log("RESULT: The textbook was not finished processing because the textbook does not contain text pages, probably only images (scanned textbook).");
+			} 
 		} catch (FileNotFoundException e) {
 			SystemLogger.getInstance().log(e.getLocalizedMessage());
 			SystemLogger.getInstance().log("RESULT: The textbook could not be processed because the pdf file does not exist.");
@@ -267,11 +274,17 @@ public class TextbookProcessor {
 			SystemLogger.getInstance().log(e.getLocalizedMessage());
 			SystemLogger.getInstance().log("RESULT: The textbook could not be processed because the file is not in PDF format.");
 		}
+		
+		return null;
 	}
 	
-	public static void main(String args[]) {
-		//
-		///home/alpiz001/Desktop/Walpole_Probability_and_Statistics.pdf
-		TextbookProcessor.processFullTextbook("/home/alpiz001/Documents/INTERLINGUA_BOOKS/EduHintOVD/BRICKS-GEO-11-bwt.pdf", LanguageEnum.ENGLISH, false, false, null, false, false, "isaacalpizar@gmail.com");
+	public static void copyTextbook(String bookID, String destinationPath) {
+		File srcFile = new File(Configuration.getInstance().getModelFolder() + "/" + bookID + "/" + "teiModel.xml");
+		File destFile = new File(destinationPath);
+		try {
+		    FileUtils.copyFile(srcFile, destFile);
+		} catch (IOException e) {
+		    e.printStackTrace();
+		}
 	}
 }

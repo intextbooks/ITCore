@@ -1,2 +1,7 @@
 /target/
-/src/config.xml
+/src/confidg.xml
+/src/Test/
+/data/logs
+/data/tdb_directory
+/data/repository
+files.toupdate.txt

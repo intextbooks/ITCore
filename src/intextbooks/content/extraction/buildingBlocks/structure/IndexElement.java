@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,44 +14,64 @@ import java.util.TreeSet;
 import java.util.Vector;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 
 import intextbooks.SystemLogger;
 import intextbooks.content.extraction.buildingBlocks.format.Line;
 import intextbooks.content.extraction.buildingBlocks.format.Page;
 import intextbooks.content.extraction.structure.IndexExtractor;
 import intextbooks.persistence.Persistence;
+import intextbooks.tools.utility.GeneralUtils;
 
 public class IndexElement {
 	private String key;
 	private int databaseId;
+	private Integer parentDatabaseId;
+	private Integer crossDatabaseId;
 	private String label;
 	private boolean fullLabel;
 	private String parentId;
 	private List<String> parts;
 	private List<String> permutations;
 	private Set<String> nounPhrases;
-	private List<Integer> pageNumbers;
-	private List<Integer> pageIndexes;
-	private List<Integer> pageSegments;
-	private Map<Integer, Set<String>> pageToSentence;
+	private List<Pair<Integer,Integer>> pages; //<pageNumber, pageIndex>
+	//private List<Integer> pageNumbers;
+	//private List<Integer> pageIndexes;
+	private Map<Integer,List<Integer>> pageSegments;
+	private Map<Pair<Integer,Integer>, Set<String>> pageToSentence;
 	private boolean artificial;
 	private IndexElement parent;
+	private Byte crossreferenceType; // 0 see / 1 see also
+	private String crossreferenceText;
+	private IndexElement crossreference;
+	private boolean propn;
 
-	public IndexElement(String key, String parentId, List<String> parts, String label, List<Integer> pageNumbers,
-			List<Integer> pageIndexes, boolean artificial, IndexElement parent) {
+	public IndexElement(String key, String parentId, List<String> parts, String label, List<Pair<Integer,Integer>> pages,
+			 boolean artificial, IndexElement parent) {
 		this.key = key;
 		this.parentId = parentId;
 		this.parts = parts;
 		this.label = label;
-		this.pageNumbers = pageNumbers;
-		this.pageIndexes = pageIndexes;
-		this.pageSegments = new ArrayList<Integer>();
+		this.pages = pages;
+		this.pageSegments = new LinkedHashMap<Integer,List<Integer>>();
 		this.artificial = artificial;
 		this.parent = parent;
 
 		nounPhrases = new HashSet<String>();
-		pageToSentence = new HashMap<Integer, Set<String>> ();
+		pageToSentence = new HashMap<Pair<Integer,Integer>, Set<String>> ();
 		permutations = new ArrayList<String>();
+	}
+	
+	public void addCrossreferenceInformation(String type, String text) {
+		if(type != null) {
+			crossreferenceType = Byte.valueOf(type);
+			crossreferenceText = text;
+		}
+		
+	}
+	
+	public void setCrossreference(IndexElement crossreference) {
+		this.crossreference = crossreference;
 	}
 
 	public String getKey() {
@@ -84,15 +105,15 @@ public class IndexElement {
 		this.nounPhrases.add(phrase);
 	}
 
-	public Set<String> getSentenceFromPage(Integer pageIndex) {
-		return this.pageToSentence.get(pageIndex);
+	public Set<String> getSentenceFromPage(Integer pageNumber, Integer segment) {
+		return this.pageToSentence.get(Pair.of(pageNumber, segment));
 	}
 
-	public void addPageToSentence(Integer pageIndex, String sentence) {
-		Set<String> sentences = this.pageToSentence.get(pageIndex);
+	public void addPageToSentence(Integer pageNumber, Integer segment, String sentence) {
+		Set<String> sentences = this.pageToSentence.get(Pair.of(pageNumber, segment));
 		if(sentences == null) {
 			sentences = new HashSet<String>();
-			this.pageToSentence.put(pageIndex, sentences);
+			this.pageToSentence.put(Pair.of(pageNumber, segment), sentences);
 		}
 
 		sentences.add(sentence);
@@ -121,41 +142,49 @@ public class IndexElement {
 	}
 
 	public List<Integer> getPageNumbers() {
-		return pageNumbers;
-	}
-
-	public int getAPageNumber(int position){
-
-		if(position < this.pageNumbers.size() && position >= 0 ){
-			return pageNumbers.get(position);
+		List<Integer> numbers = new ArrayList<Integer>();
+		for(Pair<Integer, Integer> page: pages) {
+			numbers.add(page.getLeft());
 		}
-		else{
-			return -1;
-		}
+		return numbers;
 	}
-
-	public int getAPageIndex(int position){
-
-		if(position < this.pageIndexes.size() && position >= 0 ){
-
-			return pageIndexes.get(position);
-		}
-		else{
-			return -1;
-		}
-	}
-
-	public void setPageNumbers(List<Integer> pageNumbers) {
-		this.pageNumbers = pageNumbers;
-	}
-
+	
 	public List<Integer> getPageIndexes() {
-		return pageIndexes;
+		List<Integer> numbers = new ArrayList<Integer>();
+		for(Pair<Integer, Integer> page: pages) {
+			numbers.add(page.getRight());
+		}
+		return numbers;
+	}
+	
+	public void setPages (List<Pair<Integer,Integer>> pages) {
+		this.pages = pages;
+	}
+	
+	public List<Pair<Integer,Integer>> getPages() {
+		return this.pages;
 	}
 
-	public void setPageIndexes(List<Integer> pageIndexes) {
-		this.pageIndexes = pageIndexes;
-	}
+//	public int getAPageNumber(int position){
+//
+//		if(position < this.pageNumbers.size() && position >= 0 ){
+//			return pageNumbers.get(position);
+//		}
+//		else{
+//			return -1;
+//		}
+//	}
+//
+//	public int getAPageIndex(int position){
+//
+//		if(position < this.pageIndexes.size() && position >= 0 ){
+//
+//			return pageIndexes.get(position);
+//		}
+//		else{
+//			return -1;
+//		}
+//	}
 
 	public IndexElement getParent() {
 		return parent;
@@ -163,6 +192,14 @@ public class IndexElement {
 
 	public void setParent(IndexElement parent) {
 		this.parent = parent;
+	}
+
+	public Integer getParentDatabaseId() {
+		return parentDatabaseId;
+	}
+
+	public void setParentDatabaseId(int parentDatabaseId) {
+		this.parentDatabaseId = parentDatabaseId;
 	}
 
 	public String getParentId() {
@@ -201,21 +238,54 @@ public class IndexElement {
 		this.fullLabel = fullLabel;
 	}
 
-	public List<Integer> getPageSegments() {
+	public Map<Integer,List<Integer>> getPageSegments() {
 		return pageSegments;
 	}
 
-	public void setPageSegments(List<Integer> pageSegments) {
+	public void setPageSegments(Map<Integer,List<Integer>> pageSegments) {
 		this.pageSegments = pageSegments;
+	}
+	
+	public Integer getCrossDatabaseId() {
+		return crossDatabaseId;
+	}
+
+	public void setCrossDatabaseId(Integer crossDatabaseId) {
+		this.crossDatabaseId = crossDatabaseId;
+	}
+
+	public boolean hasCrossreference() {
+		if(this.crossreferenceType != null) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	
+	public String getCrossreferenceText() {
+		return this.crossreferenceText;
+	}
+	
+	public Byte getCrossreferenceType() {
+		return this.crossreferenceType;
+	}
+
+	public boolean isPropn() {
+		return propn;
+	}
+
+	public void setPropn(boolean propn) {
+		this.propn = propn;
 	}
 
 	@Override
 	public String toString() {
-		return "IndexElement [key=\"" + key + "\", databaseId=" + databaseId + ", label=" + label + ", fullLabel="
-				+ fullLabel + ", parentId=" + parentId + ", parts=" + parts + ", permutations=" + permutations
-				+ ", nounPhrases=" + nounPhrases + ", pageNumbers=" + pageNumbers + ", pageIndexes=" + pageIndexes
+		return "IndexElement [key=\"" + key + "\", databaseId=" + databaseId + ", parentDatabaseId=" + parentDatabaseId + ", crossDatabaseId=" + crossDatabaseId + ", label=" + label + ", fullLabel="
+				+ fullLabel + ", PROPN=" + propn + ", parentKey=" + parentId + ", parts=" + parts + ", permutations=" + permutations
+				+ ", nounPhrases=" + nounPhrases + ", pages=" + pages
 				+ ", pageSegments=" + pageSegments + ", pageToSentence=" + pageToSentence + ", artificial=" + artificial
-				+ ", parent=" + parent + "]";
+				+ ", parent=" + parent
+				+ ", cossreferenceType=" + crossreferenceType + ", cossreferenceText=" + crossreferenceText + ", crossreference=" + crossreference + "]";
 	}
 
 	private ArrayList<String> getPermutations(List<String> parts) {
@@ -254,13 +324,23 @@ public class IndexElement {
 		databaseId = p.addIndexCatalogEntry(content_id, parent_id, key, label, fullLabel, artificial);
 
 		//Index Location
-		for(int i = 0; i < this.pageIndexes.size(); i++) {
-			if(this.pageSegments != null && i < this.pageSegments.size()) {
-				p.addIndexLocationEntry(databaseId, pageIndexes.get(i), pageNumbers.get(i), pageSegments.get(i));
+		for(int i = 0; i < this.pages.size(); i++) {
+			Pair<Integer, Integer> page = pages.get(i);
+			List<Integer> segments = this.pageSegments.get(page.getLeft());
+			if(segments != null) {
+				for(Integer seg: segments) {
+					int location_id = p.addIndexLocationEntry(databaseId, page.getRight(), page.getLeft(), seg);
+					//Index Sentence
+					Set<String> sentences = this.getSentenceFromPage(page.getLeft(), seg);
+					if(sentences != null) {
+						for(String sentence : sentences) {
+							p.addIndexSentenceEntry(location_id, sentence);
+						}
+					}
+				}
 			} else {
-				p.addIndexLocationEntry(databaseId, pageIndexes.get(i), pageNumbers.get(i), -1);
+				p.addIndexLocationEntry(databaseId, page.getRight(), page.getLeft(), -1);
 			}
-
 		}
 
 		//Index Noun
@@ -272,17 +352,17 @@ public class IndexElement {
 		for(String part : permutations) {
 			p.addIndexPartEntry(databaseId, part);
 		}
-
-		//Index Sentence
-		for(Integer page: pageIndexes) {
-			Set<String> sentences = this.getSentenceFromPage(page);
-			if(sentences != null) {
-				for(String sentence : sentences) {
-					p.addIndexSentenceEntry(databaseId, page, sentence);
-				}
-			}
+	}
+	
+	public void updateCrossreference() {
+		Persistence p = Persistence.getInstance();
+		try {
+			p.addCrossreferenceToEntry(this.databaseId, this.crossreferenceType, this.crossreference.databaseId);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			//SystemLogger.getInstance().log("ERROR UPDATING CROSSREFERENCE: " + this.key + " " + this.getCrossreferenceType() + " " +  this.crossreference);
+			//e.printStackTrace();
 		}
-
 	}
 
 	// STATIC METHODS *******************************
@@ -366,8 +446,7 @@ public class IndexElement {
 		String key = null;
 		String parentId = null;
 		List<String> parts = new ArrayList<String>();
-		List<Integer> pageNumbers = new ArrayList<Integer>();
-		List<Integer> pageIndexes = new ArrayList<Integer>();
+		List<Pair<Integer, Integer>> pagesList = new ArrayList<Pair<Integer, Integer>>();
 		//assign value to data variables
 		for(int i = 0; i < tokens.length -1; i++) {
 			parts.add(tokens[i]);
@@ -386,9 +465,8 @@ public class IndexElement {
 				try {
 					int pageNumber = Integer.parseInt(page.replaceAll("[;,]", ""));
 					int pageIndex = findPageIndexWithPageNumber(book, pageNumber);
-					if (pageIndex != -1) {
-						pageNumbers.add(pageNumber);
-						pageIndexes.add(pageIndex);
+					if (pageIndex != -1 && !GeneralUtils.containsPageNumber(pagesList, pageNumber)) {
+						pagesList.add(Pair.of(pageNumber, pageIndex));
 					}
 				} catch (NumberFormatException e) {
 					e.printStackTrace();
@@ -396,11 +474,10 @@ public class IndexElement {
 				}
 			}
 		} else {
-			pageNumbers.add(-1);
-			pageIndexes.add(-1);
+			pagesList.add(Pair.of(-1, -1));
 		}
 		//construct and return the index element
-		return new IndexElement(key, parentId, parts, null, pageNumbers, pageIndexes,line.isArtificial(), null);
+		return new IndexElement(key, parentId, parts, null, pagesList,line.isArtificial(), null);
 	}
 
 	private static int findPageIndexWithPageNumber(List<Page> book, int pageNumber){

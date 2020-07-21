@@ -10,7 +10,10 @@ public enum BookStatus {
 	Processed("Processed"),
 	ProcessedNoDBpedia("ProcessedNoDBpedia"),
 	NotPDFFile("NotPDFFile"),
-	IOError("IOError");
+	IOError("IOError"),
+	OnlyEnrichment("OnlyEnrichment"),
+	OnlyEnrichmentError("OnlyEnrichmentError"),
+	NoTextPages("NoTextPages");
 	
 	private final String value;
 
@@ -38,6 +41,12 @@ public enum BookStatus {
 	    	case "ProcessedNoDBpedia" : 
 	    		explanation = "the textbook was processed and the models were created, but the DBPedia category was not valid and the index terms were not linked"; 
 	    		break;
+	    	case "OnlyEnrichment" : 
+	    		explanation = "the glossary was enriched successfully"; 
+	    		break;
+	    	case "OnlyEnrichmentError" : 
+	    		explanation = "there was an unknown error while processing the enrichment of the glossary"; 
+	    		break;
 	    	case "TOCNotFound" : 
 	    		explanation = "the textbook does not contain a Table of Contents"; 
 	    		break;
@@ -46,6 +55,9 @@ public enum BookStatus {
 	    		break;
 			case "NoIndex" : 
 				explanation = "the textbook does not contain an Index"; 
+	    		break;
+			case "NoTextPages" : 
+				explanation = "the textbook does not contain text pages, probably there are images (scanned textbook)"; 
 	    		break;
 	    	case "Error" : 
 	    	default:

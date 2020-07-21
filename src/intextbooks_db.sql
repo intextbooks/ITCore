@@ -36,21 +36,23 @@ CREATE TABLE IF NOT EXISTS _indexCatalog
   concept_name varchar(1000) null,
   full_label   tinyint(1)    not null,
   artificial   tinyint(1)    not null,
+  cross_type   tinyint(1)    null,
+  cross_id    int            null,		
   constraint _indexCatalog_content_id_fk
     foreign key (content_id) references content (id)
       on update cascade on delete cascade
 );
 
-CREATE TABLE IF NOT EXISTS _indexLocation
+create table _indexLocation
 (
-  index_id    int not null,
-  page_index  int not null,
-  page_number int not null,
-  segment     int not null,
-  primary key (index_id, page_index),
-  constraint _indexLocation__indexCatalog_id_fk
-    foreign key (index_id) references _indexCatalog (id)
-      on update cascade on delete cascade
+    id          int auto_increment
+        primary key,
+    index_id    int not null,
+    page_index  int not null,
+    page_number int not null,
+    segment     int not null,
+    constraint _indexLocation__indexCatalog_id_fk
+        foreign key (index_id) references _indexCatalog (id)
 );
 
 CREATE TABLE IF NOT EXISTS _indexText
@@ -115,19 +117,44 @@ CREATE TABLE IF NOT EXISTS downloadAccess
     foreign key (book_id) references content (id)
 );
 
-CREATE TABLE IF NOT EXISTS _indexSentence
+create table _indexSentence
 (
-  index_id    int not null,
-  page_index  int not null,
-  sentence_id int not null,
-  constraint _indexSentence_pk
-    unique (index_id, page_index, sentence_id),
-  constraint _indexSentence__indexLocation_index_id_page_index_fk
-    foreign key (index_id, page_index) references _indexLocation (index_id, page_index)
-      on update cascade on delete cascade,
-  constraint _indexSentence__indexText_text_id_fk
-    foreign key (sentence_id) references _indexText (text_id)
-      on update cascade on delete cascade
+    sentence_id int not null,
+    location_id int not null,
+    constraint _indexSentence_pk
+        unique (sentence_id, location_id),
+    constraint _indexSentence__indexLocation_id_fk
+        foreign key (location_id) references _indexLocation (id),
+    constraint _indexSentence__indexText_text_id_fk
+        foreign key (sentence_id) references _indexText (text_id)
 );
 
+
+DELIMITER //
+CREATE PROCEDURE updateIndexSentence()
+BEGIN
+DECLARE no_more_rows1 INT;
+DECLARE id_1, index_id_1, page_index_1 INT;
+
+DECLARE cur1 CURSOR FOR SELECT id, index_id, page_index from _indexLocation;
+
+DECLARE CONTINUE handler FOR NOT FOUND SET no_more_rows1 = TRUE;
+
+OPEN cur1;
+read_loop: LOOP
+  FETCH cur1 into id_1, index_id_1, page_index_1;
+  IF no_more_rows1 THEN
+    LEAVE read_loop;
+  END IF;
+
+  UPDATE _indexSentence set location_id = id_1 where index_id = index_id_1 and page_index = page_index_1;
+
+END LOOP;
+
+CLOSE cur1;
+END //
+
+DELIMITER ;
+
+CALL updateIndexSentence();
 

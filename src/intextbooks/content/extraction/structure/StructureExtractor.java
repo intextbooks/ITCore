@@ -38,6 +38,7 @@ import intextbooks.content.extraction.Utilities.StringOperations;
 import intextbooks.content.extraction.buildingBlocks.format.Line;
 import intextbooks.content.extraction.buildingBlocks.format.Page;
 import intextbooks.content.extraction.buildingBlocks.format.ResourceUnit;
+import intextbooks.content.extraction.buildingBlocks.structure.BookContent;
 import intextbooks.content.extraction.buildingBlocks.structure.BookStructure;
 import intextbooks.content.extraction.buildingBlocks.structure.IndexElement;
 import intextbooks.content.extraction.buildingBlocks.structure.IndexTerm;
@@ -50,6 +51,7 @@ import intextbooks.content.extraction.format.PdfIntraLinkRemover;
 import intextbooks.content.extraction.structure.TableOfContentsExtractor.tocType;
 import intextbooks.content.models.formatting.FormattingDictionary;
 import intextbooks.exceptions.BookWithoutPageNumbersException;
+import intextbooks.exceptions.BookWithoutTextPagesException;
 import intextbooks.exceptions.EarlyInterruptionException;
 import intextbooks.exceptions.NoIndexException;
 import intextbooks.exceptions.TOCNotFoundException;
@@ -74,7 +76,7 @@ public class StructureExtractor {
 	
 	private String bookID;
 	
-	public StructureExtractor(String bookID, String filePath, LanguageEnum lang, resourceType type, boolean processReadingLabels, boolean linkToExternalGlossary, boolean splitTextbook) throws TOCNotFoundException, NullPointerException, BookWithoutPageNumbersException, NoIndexException{
+	public StructureExtractor(String bookID, String filePath, LanguageEnum lang, resourceType type, boolean processReadingLabels, boolean linkToExternalGlossary, boolean splitTextbook) throws TOCNotFoundException, NullPointerException, BookWithoutPageNumbersException, NoIndexException, BookWithoutTextPagesException{
 		
 		this.type = type;
 		this.bookID = bookID;
@@ -101,8 +103,9 @@ public class StructureExtractor {
  * @throws TOCNotFoundException 
  * @throws EarlyInterruptionException 
  * @throws NoIndexException 
+ * @throws BookWithoutTextPagesException 
  */
-	private void bookExtractor(String bookID, String filePath, LanguageEnum lang, resourceType type, boolean processReadingLabels, boolean linkToExternalGlossary, boolean splitTextbook) throws TOCNotFoundException, NullPointerException, BookWithoutPageNumbersException, NoIndexException{
+	private void bookExtractor(String bookID, String filePath, LanguageEnum lang, resourceType type, boolean processReadingLabels, boolean linkToExternalGlossary, boolean splitTextbook) throws TOCNotFoundException, NullPointerException, BookWithoutPageNumbersException, NoIndexException, BookWithoutTextPagesException{
 		SystemLogger.getInstance().log("Start: Book Extaction (bookExtractor)");
 		FormatExtractor parse;
 		IndexExtractor indexExtractor = new IndexExtractor(bookID);
@@ -133,7 +136,7 @@ public class StructureExtractor {
 
 			SystemLogger.getInstance().log("Start: Index Extraction (indexExtractor.extractIndex)");
 			try {
-				this.index = indexExtractor.extractIndex(parse.getPages(),parse.getTableOfContents(), bookID, styleLibrary, parse.getFonts(), processReadingLabels);
+				this.index = indexExtractor.extractIndex(parse.getPages(),parse.getTableOfContents(), bookID, styleLibrary, parse.getFonts(), processReadingLabels, parse.getMetadata());
 			} catch (NoIndexException e) {
 				SystemLogger.getInstance().log("ERROR while extracting the index: " + e.getMessage());
 			}
@@ -215,6 +218,7 @@ public class StructureExtractor {
 			 * It also creates the chapter and paragraphs segments and adds that information to the book model (Book).
 			 * It also creates the chapter and paragraphs schemes elements in the SKOS MODEL.
 			 */
+			//SystemLogger.getInstance().setDebug(true);
 			ArrayList<SegmentData> segmentsData = segmentExtractor.seperatedChapterExtractions(bookID, parse, this.listToModel, this.tocLogical, styleLibrary, splitTextbook);
 			segmentExtractor.addSegmentsToSKOSModel(this.listToModel);
 			
@@ -223,56 +227,46 @@ public class StructureExtractor {
 			labelOfStylesCrossCheck(segmentsData, parse.getPages(), parse.getLabelOfStyles());
 			parse.identifyTextBlocksV2(bookID, parse.getLabelOfStyles());
 			
-			SystemLogger.getInstance().log("Start: matching Index Terms to Segments");
-			indexExtractor.matchIndexTermsToSegments(parse.getPagesAsLines(), bookID, index);
 			
+			SystemLogger.getInstance().log("Start: Textual Extraction");
+			BookContent bookContent = extractBookText(segmentsData, parse.getPages(), segmentExtractor, indexExtractor.getFirstIndexPage(), tocLogical, parse.getLabelOfStyles().getBodyFontSize(), parse.getMetadata());	
+			SystemLogger.getInstance().log("END: Textual Extraction");
+			
+			//* Use Noun Extraction to try to get the right label for the index element
+			if(processReadingLabels) {
+				SystemLogger.getInstance().log("Start: updateIndexElementsWithNounInformation");
+				IndexExtractor.updateIndexElementsWithNounInformation(bookContent, this.index);
+			}
+			
+//			/*TESTING*/	
 //			for(IndexElement i: this.index) {
 //				System.out.println(i);
 //			}
-//			System.exit(0);
+//			//System.exit(0);
+//			/*TESTING*/	
 			
+			SystemLogger.getInstance().log("Start: Matching Index Terms to Segments");
+			indexExtractor.matchIndexTermsToSegments(index, bookContent);
+			
+			SystemLogger.getInstance().log("Start: Store Index to DB (indexExtractor.storeIndexToDatabase)");
+			indexExtractor.storeIndexToDatabase(parse.getPagesAsLines(), bookID, index);
+					
 			SystemLogger.getInstance().log("Start: TEI Model Construction");
 			TEIBuilder tei = new TEIBuilder(bookID, lang, segmentsData, parse.getPages(), segmentExtractor, indexExtractor.getFirstIndexPage(), tocLogical, index, parse.getMetadata(), parse.getLabelOfStyles());
 			tei.construct();
 			cm.setTEIModel(bookID, tei.getModel());
-
-			SystemLogger.getInstance().log("Start: Textual Extraction");
-			String allCOntent = extractBookText(segmentsData, parse.getPages(), segmentExtractor, indexExtractor.getFirstIndexPage(), tocLogical);
 			
-			//SystemLogger.getInstance().log("Start: Store Index to DB (indexExtractor.storeIndexToDatabase)");
-			indexExtractor.storeIndexToDatabase(parse.getPagesAsLines(), bookID, index);
-			
-//			/*TESTING*/	
-//			for(IndexElement i: index) {
-//				System.out.println(i);
-//			}
-//			System.exit(0);
-//			/*TESTING*/	
-
-			/**
-			 * Method searchWords highlights the words. Color blue is used for index terms in the pages where the terms are introduced 
-			 * (according to the index, all the index pages for the term).
-			 * Color green is used when the index term appears in the text, but that page is not listed in the index entry of the term
-			 * in the index section
-			 */
-			//SystemLogger.getInstance().log("Start: Annotation #1 (annotate)");
-			//annotate(parse,filePath,bookID, highlightList);
-
-			//SystemLogger.getInstance().log("Start: Annotation #2 (annotate)");
-			//annotate(parse,filePath,bookID);
-		
-			bookStructure.setIndex(this.index);
-			bookStructure.setFirstIndexPage(indexExtractor.getFirstIndexPage());
-			bookStructure.setToc(this.tocLogical);
-			bookStructure.setFormattingDictionary(this.cm.getStyleLibrary(bookID));
-			bookStructure.setBookContent(parse.getBookContent());
-			bookStructure.setRawText(allCOntent);
-			bookStructure.setNumberPages(parse.getPages().size());
-			
+			//update book pages
 			this.cm.getInstanceOfBookByName(bookID).setPages(parse.getPages());
-			
-			
-			SystemLogger.getInstance().log("End: Book Extaction (bookExtractor)");
+		
+//			bookStructure.setIndex(this.index);
+//			bookStructure.setFirstIndexPage(indexExtractor.getFirstIndexPage());
+//			bookStructure.setToc(this.tocLogical);
+//			bookStructure.setFormattingDictionary(this.cm.getStyleLibrary(bookID));
+//			bookStructure.setBookContent(parse.getBookContent());
+//			bookStructure.setRawText(bookContent.getAllContent());
+//			bookStructure.setNumberPages(parse.getPages().size());
+//			SystemLogger.getInstance().log("End: Book Extaction (bookExtractor)");
 			
 			/*TESTING*/		
 //			SystemLogger.getInstance().log("Printing segments information (printSegmentsInformation)");
@@ -339,7 +333,8 @@ public class StructureExtractor {
 
 	}
 	
-	private String extractBookText(ArrayList<SegmentData> segmentsData, List<Page> pages, SegmentExtractor segmentExtractor, int firstIndexPage, TOCLogical tocLogical) {
+	private BookContent extractBookText(ArrayList<SegmentData> segmentsData, List<Page> pages, SegmentExtractor segmentExtractor, int firstIndexPage, TOCLogical tocLogical, int bodyFontSize, Map<String, String> metadata) {
+		BookContent bookContent = new BookContent();
 		String allContent = "";
 		int firstPage = -1;
 		
@@ -355,19 +350,23 @@ public class StructureExtractor {
 		for(int i=0; i < segmentsData.size(); i++) {
 			SegmentData s = segmentsData.get(i);
 			
-			/*TESTING*/
-//			System.out.println("> " + s.getTitle()+ " ID: " + s.getChapterID() + " PID: " + s.getParagraphID() + " H: " + s.getHierarchy());	
-//			System.out.println("\tTitleStart: " + s.getChapterMedatada().getPageStartIndex() + " startLine: " + s.getChapterMedatada().getTitleLineStart());
-//			System.out.println("\tstartP: " + s.getChapterMedatada().getPageStartIndex() + " startLine: " + s.getChapterMedatada().getLineStart());
-//			System.out.println("\tendP: " + s.getChapterMedatada().getPageEndIndex() + " endLine: " + s.getChapterMedatada().getLineEnd());
-			/*TESTING*/
+//			/*TESTING*/
+//			SystemLogger.getInstance().debug("> " + s.getTitle()+ " ID: " + s.getChapterID() + " PID: " + s.getParagraphID() + " H: " + s.getHierarchy());	
+//			SystemLogger.getInstance().debug("\tTitleStart: " + s.getChapterMedatada().getPageStartIndex() + " startLine: " + s.getChapterMedatada().getTitleLineStart());
+//			SystemLogger.getInstance().debug("\tstartP: " + s.getChapterMedatada().getPageStartIndex() + " startLine: " + s.getChapterMedatada().getLineStart());
+//			SystemLogger.getInstance().debug("\tendP: " + s.getChapterMedatada().getPageEndIndex() + " endLine: " + s.getChapterMedatada().getLineEnd());
+//			/*TESTING*/
+			
+			if(s.getChapterMedatada().isNonContent) {
+				continue;
+			}
 			
 			if(firstPage == -1) {
 				firstPage =  s.getChapterMedatada().getPageStartIndex();
 			}
 			
 			//check if we must stop for index
-			if(s.getChapterMedatada().getPageStartIndex() >= firstIndexPage) {
+			if(firstIndexPage != -1 && s.getChapterMedatada().getPageStartIndex() >= firstIndexPage) {
 				break;
 			}
 			
@@ -384,30 +383,36 @@ public class StructureExtractor {
 			
 			//get content of section
 			String content = sectionTitle + "\n";
+			Pair<String,Map<Integer, String>> contentPair = null;
 			if(i != segmentsData.size() -1) {
 				SegmentData nextS = segmentsData.get(i+1);
 				int endPage = nextS.getChapterMedatada().getPageStartIndex();
 				int endLine = nextS.getChapterMedatada().getTitleLineStart() -1;
-				if(endLine <= 1) {
+				if(endLine < 0) {
 					endPage = getValidPreviousPage(nextS.getChapterMedatada().getPageStartIndex() -1, pages);
 					endLine = pages.get(endPage).size()-1;
 				}
-				content += segmentExtractor.extractChapterLines(pages, s.getChapterMedatada().getPageStartIndex(), s.getChapterMedatada().getLineStart()+1, endPage, endLine, s.getChapterMedatada().getPageTitle(), s.getChapterMedatada().getPageStart(), firstPages.contains(s.getChapterMedatada().getPageStartIndex()));
+				contentPair = segmentExtractor.extractChapterLines(pages, s.getChapterMedatada().getPageStartIndex(), s.getChapterMedatada().getLineStart()+1, endPage, endLine, s.getChapterMedatada().getPageTitle(), s.getChapterMedatada().getPageStart(), firstPages.contains(s.getChapterMedatada().getPageStartIndex()), bodyFontSize, metadata);
+				content += contentPair.getLeft();
 			} else {
 				//last section
-				content += segmentExtractor.extractChapterLines(pages, s.getChapterMedatada().getPageStartIndex(), s.getChapterMedatada().getLineStart()+1, s.getChapterMedatada().getPageEndIndex(), s.getChapterMedatada().getLineEnd(),s.getChapterMedatada().getPageTitle(), s.getChapterMedatada().getPageStart(),  firstPages.contains(s.getChapterMedatada().getPageStartIndex()));
+				contentPair = segmentExtractor.extractChapterLines(pages, s.getChapterMedatada().getPageStartIndex(), s.getChapterMedatada().getLineStart()+1, s.getChapterMedatada().getPageEndIndex(), s.getChapterMedatada().getLineEnd(),s.getChapterMedatada().getPageTitle(), s.getChapterMedatada().getPageStart(),  firstPages.contains(s.getChapterMedatada().getPageStartIndex()), bodyFontSize, metadata);
+				content += contentPair.getLeft();
 			}
 			
-			String path = "";
-			if(i < 10)
-				path += "0";
-			path += (i+1);
-			path += " " + sectionTitle;
+			String pathName = "";
+			int num = s.getChapterID()+1;
+			if(num < 10)
+				pathName += "0";
+			pathName += num;
+			pathName += " " + sectionTitle;
 			allContent += content;
-			//Persistence.getInstance().storeExtractonTempInfo(this.bookID, path, content);
-			Persistence.getInstance().storeSegment(this.bookID, s.getChapterID()+1, content);
+			bookContent.addContentToSegment(s.getChapterID()+1, content);
+			bookContent.addContentToSegmentPage(s.getChapterID()+1, contentPair.getRight(), sectionTitle);
+			Persistence.getInstance().storeSegment(this.bookID, pathName, content);
 		}
 		
+		//save frontmatter
 		if(firstPage != -1) {
 			int endPage = getValidPreviousPage(firstPage -1, pages);
 			int endLine = pages.get(endPage).size()-1;
@@ -422,18 +427,41 @@ public class StructureExtractor {
 				endPageBeforeTOC = i;
 			}
 			int startPageAfterTOC = tocLogical.getLastTOCPage()+1;
-			String frontContent = segmentExtractor.extractChapterLines(pages, 0, 0, endPageBeforeTOC, endLineBeforeTOC, "frontMatter", 0,  false);
+			Pair<String,Map<Integer, String>> contentPair = segmentExtractor.extractChapterLines(pages, 0, 0, endPageBeforeTOC, endLineBeforeTOC, "frontMatter", 0,  false, bodyFontSize, metadata);
+			String frontContent = contentPair.getKey();
 			frontContent += tocLogical.toSectionString();
-			frontContent += segmentExtractor.extractChapterLines(pages, startPageAfterTOC, 0, endPage, endLine, "frontMatter", 0,  false);
+			frontContent += segmentExtractor.extractChapterLines(pages, startPageAfterTOC, 0, endPage, endLine, "frontMatter", 0,  false, bodyFontSize, metadata);
 			//Persistence.getInstance().storeExtractonTempInfo(this.bookID, "00 frontMatter", frontContent);
 			Persistence.getInstance().storeSegment(this.bookID, 1, frontContent);
 			allContent = frontContent + allContent;
 		}
 		
-		//Persistence.getInstance().storeExtractonTempInfo(this.bookID, "00", allContent);
+		//save all content;
 		Persistence.getInstance().storeSegment(this.bookID, 0, allContent);
+		bookContent.setAllContent(allContent);
 		
-		return allContent;
+		
+		//save aggregated conten for each section
+		for(int i=0; i < segmentsData.size(); i++) {
+			SegmentData s = segmentsData.get(i);
+			String content = bookContent.getContentOfSegment(s.getChapterID()+1);
+			
+			for(int j=i+1; j < segmentsData.size(); j++) {
+				if(segmentsData.get(j).getHierarchy() > s.getHierarchy()) {
+					content += "\n" + bookContent.getContentOfSegment(segmentsData.get(j).getChapterID()+1);
+				} else {
+					break;
+				}
+			}
+			
+			if(content != null) {
+				Persistence.getInstance().storeSegment(this.bookID, String.valueOf(s.getChapterID()+1), content);
+			}
+			
+		}
+		
+		
+		return bookContent;
 	}
 	
 	private int getValidPreviousPage(int page, List<Page> pages) {
@@ -462,36 +490,6 @@ public class StructureExtractor {
 		}
 	}
 
-	/**
-	 * 
-	 * @param presentationID
-	 * @param filePath
-	 * @param lang
-	 * @param type
-	 * @throws EarlyInterruptionException 
-	 * @throws BookWithoutPageNumbersException 
-	 * @throws NullPointerException 
-	 */
-	private void slideExtractor(String presentationID, String filePath, LanguageEnum lang, resourceType type) throws NullPointerException, BookWithoutPageNumbersException{
-
-		FormatExtractor parse;
-		try {
-			this.listToModel = new StructureBuilder(presentationID, type);	
-
-			parse = new FormatExtractor(presentationID, filePath, type);
-//			headingSlideIndexMatching(parse.getSlides());			
-
-			
-			modelOverFlat(presentationID, parse.getTableOfContents(),parse,index, type);
-//			modelOverPresentation(bookID, parse, type);
-			
-		} catch (IOException e) {
-			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
-		} catch (TOCNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
 
 	/**
 	 * 
@@ -504,62 +502,8 @@ public class StructureExtractor {
 		listToModel.produceSKOSModelOfPresentation(bookID, parse.getPageNumbers(), type);		
 	}
 
-	/**
-	 * 
-	 * @param slides
-	 */
-/*	private void headingSlideIndexMatching(List<Slide> slides){
 
-		Map<String, String> headingIndexMap = new HashMap<String, String> ();
-		String previousHeading = "";
-
-		for(int i = 0; i<slides.size(); i++){
-			if(slides.get(i) != null){
-				String currentHeading = slides.get(i).getSlideHeading();
-
-				if(i==0){
-
-					listToModel.add(currentHeading, 1);
-
-					previousHeading = currentHeading;
-					headingIndexMap.put(currentHeading, String.valueOf(slides.get(i).getSlideIndex()));
-				}
-				else{
-
-					String[] previous = previousHeading.split(" ");
-					String[] current = currentHeading.split(" ");
-
-					int j;
-
-					for(j=0; j<previous.length; j++){
-
-						if(!previous[j].toLowerCase().matches(current[j].toLowerCase())   ){
-
-							if(j==previous.length-1 && previous.length>1){
-								continue;
-							}						
-							else
-								break;						
-						}
-					}
-
-					if(j<previous.length){
-
-						listToModel.add(currentHeading, 1);
-
-						previousHeading = currentHeading;
-						headingIndexMap.put(currentHeading, String.valueOf(slides.get(i).getSlideIndex()));					
-					}
-					else{
-
-						String value = headingIndexMap.get(previousHeading);
-						value +=","+ String.valueOf(slides.get(i).getSlideIndex());
-						headingIndexMap.put(previousHeading, value);		
-					}			
-				}
-			}
-		}
-	}*/
+	
 
 /**
  * 
@@ -590,6 +534,132 @@ public class StructureExtractor {
 		}
 		return -1;
 	}
+
+//	/**
+//	 * 
+//	 * @param book
+//	 * @param filePath
+//	 * @param bookID
+//	 */
+//	public void annotate(FormatExtractor book, String filePath, String bookID){
+//
+//		filePath = filePath.replaceAll(".pdf", "")+"_highlighted.pdf";
+//
+//		File file = new File(filePath);
+//
+//		int totalHighlighted =0;
+//		boolean higlighted = false;
+//		SystemLogger.getInstance().log("PDF enrichment process start!");
+//
+//
+//		if (!file.isFile()) {
+//			System.err.println("File " + filePath + " does not exist.");
+//			return;
+//		}
+//
+//		try {
+//
+//			RandomAccessFile raf = new RandomAccessFile(file, "rw");
+//			PDFParser parser = new PDFParser(raf);
+//
+//			parser.parse();
+//
+//			PDDocument doc = new PDDocument(parser.getDocument());
+//
+//			String newFilePath = filePath;
+//
+//			LanguageEnum lang = cm.getBookLanguage(bookID);
+//
+//			for(int j = 0; j < index.size(); j++){
+//
+//				if(cm.getConceptOfIndexElement(bookID, index.get(j).getKey()) != null && index.get(j).getAPageNumber(0) != -1){
+//					
+//					higlighted = false;
+//
+//					//SystemLogger.getInstance().log("Search for index term: " + index.get(j).getID());
+//					ArrayList<Integer> segments = cm.getSegmentsIdOfIndexTerm(bookID, index.get(j).getKey());
+//
+//					for(int i = 0; i<index.get(j).getPageIndexes().size(); i++ ){
+//
+//						int endPageNum = cm.getEndIndexOfSegment(bookID, segments.get(i));
+//						List <PDPage> pageRange = new ArrayList<PDPage>(); 
+//						List<ResourceUnit> pageAsLines = new ArrayList<ResourceUnit> ();
+//
+//						for(int k = index.get(j).getAPageIndex(i); k < endPageNum;  k++){
+//
+//							pageAsLines.add(book.getPages().get(k)) ;
+//
+//							PDPage page = doc.getPages().get(k);
+//							pageRange.add(page);
+//
+//						}
+//
+//						if(pageRange.isEmpty()){
+//							pageAsLines.add(book.getPages().get(index.get(j).getAPageIndex(i))) ;
+//							PDPage page = (PDPage) doc.getPages().get(index.get(j).getAPageIndex(i));
+//							pageRange.add(page);
+//						}
+//
+//
+//						HighlightInAPage highlighter = new HighlightInAPage(index.get(j).getNormalizedKey(),pageAsLines, pageRange, bookID, lang,  cm.getBookType(bookID));		
+//
+//						String []text = index.get(j).getNormalizedKey().split(" ");
+//						String stemmed=""; 
+//
+//						for(byte a=0; a<text.length; a++){
+//
+//							stemmed+=Stemming.stemText(lang, text[a])+" ";
+//						}
+//
+//						stemmed = stemmed.trim();
+//
+//
+//						Collection<HighlightContainer> highlightedList = highlighter.searchForWords(stemmed.toLowerCase(), true,false, index.get(j).getAPageIndex(i));		
+//
+//						if(highlighter.found == true) {
+//							
+//							higlighted = true;
+//							
+//							for (HighlightContainer highlight : highlightedList) {
+//								
+//								String conceptName = cm.getConceptOfIndexElement(bookID, index.get(j).getKey());
+//								highlight.setConceptName(conceptName);
+//								cm.addHighlight(bookID, highlight);
+//								
+//							}
+//							
+//						}
+//
+//					}
+//
+//					if(higlighted == true)
+//						totalHighlighted++;
+//
+//					SystemLogger.getInstance().log("Index term: " + index.get(j).getKey() + " highlighted succesfully!" );
+//				}
+//			}
+//
+//			SystemLogger.getInstance().log("Enriched PDF save: In Progress");
+//			doc.save(newFilePath);
+//			SystemLogger.getInstance().log("Enriched PDF save: Done");
+//
+//			System.out.println("higlighted index term # :" + totalHighlighted);
+//
+//			if (parser.getDocument() != null) 
+//				parser.getDocument().close();
+//			
+//			if (doc != null) 
+//				doc.close();	
+//
+//		} catch (IOException e) {
+//			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
+//		}
+//
+//
+//		SystemLogger.getInstance().log("PDF enrichment process end!");
+//
+//	}
+
 
 	private String fillToContent(String contentBuffer, String incomingText){
 		contentBuffer+=incomingText;	

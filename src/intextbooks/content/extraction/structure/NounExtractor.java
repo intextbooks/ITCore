@@ -8,6 +8,7 @@ import org.json.simple.parser.JSONParser;
 import intextbooks.Configuration;
 import intextbooks.SystemLogger;
 import jep.Jep;
+import jep.MainInterpreter;
 
 public class NounExtractor {
 	private String pythonScriptPath;
@@ -21,6 +22,9 @@ public class NounExtractor {
 			//locate Python script
 			pythonScriptPath = Configuration.getInstance().getPythonScriptPath();
 			SystemLogger.getInstance().log("pythonScriptPath ok");
+			//set local path to JEP library
+			if(Configuration.getInstance().getJepLibraryPath() != null && Configuration.getInstance().getJepLibraryPath() != "")
+				MainInterpreter.setJepLibraryPath(Configuration.getInstance().getJepLibraryPath());
 			//run Python script
 			try {		
 				this.jep = new Jep();
@@ -42,17 +46,38 @@ public class NounExtractor {
 		SystemLogger.getInstance().log("Initialization ended...");
 	}
 	
-	public static NounExtractor getInstance() {
+	synchronized public static NounExtractor getInstance() {
 		if(instance == null) {
 			instance = new NounExtractor();
 		}
 		return instance;
 	}
-			
-	synchronized public JSONArray getJSON(ArrayList<String> termCandidates, ArrayList<String> sentences, String lang) {
+	
+	synchronized public Long getTextMatch(String term, ArrayList<String> candidates, String lang) {
 		try {
 			//get JSON from Python
-			Object ret = this.jep.invoke("noun_extractor_main", lang, termCandidates, sentences);
+			Object ret = this.jep.invoke("text_matcher",term, candidates, lang);
+			
+			Long res = 0L;
+			
+			try {
+				res = (Long) ret;
+			} catch (Exception e) {
+				res = ((Double) ret).longValue();
+			}
+			
+			return res;
+		} catch(Exception e) {
+			SystemLogger.getInstance().log("Error getTextMatch for: " + term);
+			SystemLogger.getInstance().log(e.getMessage());
+			return 0L;
+		}
+	}
+			
+	synchronized public JSONArray getJSON(ArrayList<String> termCandidates, ArrayList<String> sentences, String lang, boolean testPROPN) {
+		try {
+			//get JSON from Python
+			Object ret = this.jep.invoke("noun_extractor_main", lang, termCandidates, sentences, testPROPN);
 			//parse JSON
             JSONParser parser = new JSONParser();
             JSONArray array = (JSONArray) parser.parse(ret.toString());
@@ -62,8 +87,13 @@ public class NounExtractor {
 		} catch(Exception e) {
 			SystemLogger.getInstance().log("Error while trying to get the reading label for: " + termCandidates);
 			SystemLogger.getInstance().log(e.getMessage());
+			SystemLogger.getInstance().log(e.getLocalizedMessage());
 			return null;
 		}
+	}
+	
+	synchronized public JSONArray getJSON(ArrayList<String> termCandidates, ArrayList<String> sentences, String lang) {
+		return getJSON(termCandidates, sentences, lang , false);
 	}
 			
 	public static void main(String[] args) {
@@ -79,10 +109,16 @@ public class NounExtractor {
 		sentences.add("one of efron’s contributions was to point out how to combine the bootstrap with modern computational power.");
 		
 		NounExtractor ins = NounExtractor.getInstance();
-		System.out.println(ins.getJSON(termCandidates, sentences, lang));
-		System.out.println(ins.getJSON(termCandidates, sentences, lang));
-		System.out.println(ins.getJSON(termCandidates, sentences, lang));
-		System.out.println(ins.getJSON(termCandidates, sentences, lang));
+//		System.out.println(ins.getJSON(termCandidates, sentences, lang));
+//		System.out.println(ins.getJSON(termCandidates, sentences, lang));
+//		System.out.println(ins.getJSON(termCandidates, sentences, lang));
+//		System.out.println(ins.getJSON(termCandidates, sentences, lang));
+		
+		sentences = new ArrayList<String>();
+		sentences.add("Probability density function (pdf) conditional");
+		sentences.add("joint Probability density . function (pdf)");
+//		
+		System.out.println(ins.getTextMatch("Joint probability density functions", sentences, lang));
 
 	}
 }

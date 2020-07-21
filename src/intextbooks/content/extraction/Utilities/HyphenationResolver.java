@@ -223,16 +223,16 @@ public class HyphenationResolver {
 						if((x+1) < lines.size()) {	
 							String wholeWord = word.substring(0, word.length()-1) + hyphen + lines.get(x+1).getWordAt(0).getText();
 							if(hyphenatedWord(wholeWord)) {
-								text.append(word.substring(0, word.length()-1) + lines.get(x+1).getWordAt(0).getText() + " ");	
+								text.append(word.substring(0, word.length()-1) + lines.get(x+1).getWordAt(0).getText());	
 								found = true;
 							} else {
-								text.append(line.getWordAt(w).getText() + " ");
+								text.append(line.getWordAt(w).getText() );
 							}
 						} else {
-							text.append(line.getWordAt(w).getText() + " ");
+							text.append(line.getWordAt(w).getText() );
 						}
 					} else {
-						text.append(line.getWordAt(w).getText() + " ");
+						text.append(line.getWordAt(w).getText());
 					}
 				} else {
 					text.append(line.getWordAt(w).getText() + " ");

@@ -146,11 +146,11 @@ public class PdfTextExtractor  {
 			if(unit != null) {
 				unit.extractLines();
 				List<Line> lines = unit.getLines();
-				Iterator<Line> iterator = lines.iterator();
-
 				trimWords(lines);
 				reasoner.checkFontSize(unit.getWords());
 				removeBeyondScopeLines(lines);
+				
+				Iterator<Line> iterator = lines.iterator();
 				while(iterator.hasNext()) {
 					Line l =iterator.next();
 					if(l.size() == 0) {

@@ -19,13 +19,10 @@ import intextbooks.persistence.Persistence;
 public class SystemLogger {
 	private static SystemLogger instance = null;
 	
-	protected SystemLogger() throws IOException {
-		this.debug = false; 
-		this.silent = false;
-		
+	protected SystemLogger() throws IOException {	
+		this.debug = !Configuration.getInstance().isSilentLogging();
 		Persistence.getInstance().checkFolder(Configuration.getInstance().getLogFolder());
 		openLogFile();
-		
 	}
 	
 	public static SystemLogger getInstance() {
@@ -47,7 +44,7 @@ public class SystemLogger {
 	private String lastDate;
 	
 	public void setDebug(boolean mode){
-		this.debug = mode;
+		//this.debug = mode;
 		//this.debug = false;
 	}
 	

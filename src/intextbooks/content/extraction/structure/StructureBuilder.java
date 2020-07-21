@@ -280,6 +280,7 @@ public class StructureBuilder {
 		 * Creates a SKOS:Concept of type 'page' for each physical page of the book
 		 */
 		createPageResources(bookID, pageNumbers, type);
+		
 
 		try {
 			/*
@@ -291,8 +292,6 @@ public class StructureBuilder {
 			e1.printStackTrace();
 		}
 	}
-
-
 	
 	/**
 	 * 
@@ -315,12 +314,6 @@ public class StructureBuilder {
 		
 		return concepts;
 }
-
-
- 
-	
-	
-	
 	
 	/**
 	 * 
@@ -753,7 +746,7 @@ public class StructureBuilder {
 		return titles.get(i);
 	}
 	
-	public static void main(String args[]) {
-		
+	public int size() {
+		return this.titles.size();
 	}
 }

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,6 +35,7 @@ import intextbooks.content.models.formatting.PageMetadataEnum;
 import intextbooks.content.models.formatting.lists.ListingContainer;
 import intextbooks.content.utilities.ConceptContainer;
 import intextbooks.exceptions.BookWithoutPageNumbersException;
+import intextbooks.exceptions.BookWithoutTextPagesException;
 import intextbooks.exceptions.EarlyInterruptionException;
 import intextbooks.exceptions.EnrichedModelWIthProblems;
 import intextbooks.exceptions.NoIndexException;
@@ -276,7 +278,7 @@ public class ContentManager {
 		}
 	}
 	
-	public BookStatus processBook(String bookId, String fileName, LanguageEnum lang, String bookName, boolean link, String type, String group, boolean processReadingLabels, boolean linkWithDBpedia, String dbpediaCat, boolean linkToExternalGlossary, boolean splitTextbook, String senderEmail) throws NullPointerException, TOCNotFoundException, BookWithoutPageNumbersException, NoIndexException {
+	public BookStatus processBook(String bookId, String fileName, LanguageEnum lang, String bookName, boolean link, String type, String group, boolean processReadingLabels, boolean linkWithDBpedia, String dbpediaCat, boolean linkToExternalGlossary, boolean splitTextbook, String senderEmail) throws NullPointerException, TOCNotFoundException, BookWithoutPageNumbersException, NoIndexException, BookWithoutTextPagesException {
 		
 		logger.log("Processing textbook " + bookId);
 		boolean DBPediaError = false;
@@ -332,12 +334,12 @@ public class ContentManager {
 	/*
 	 * Option 2: Create and process the textbook in one method
 	 */
-	public String processBookFile(String fileName, LanguageEnum lang, String bookName, boolean link, String type, String group) throws NullPointerException, TOCNotFoundException, EarlyInterruptionException, BookWithoutPageNumbersException, NoIndexException {
+	public String processBookFile(String fileName, LanguageEnum lang, String bookName, boolean link, String type, String group) throws NullPointerException, TOCNotFoundException, EarlyInterruptionException, BookWithoutPageNumbersException, NoIndexException, BookWithoutTextPagesException {
 
 		return processBookFile(fileName, lang, bookName, link, type, group, true, true, true, true, null);
 	}
 	
-	public String processBookFile(String fileName, LanguageEnum lang, String bookName, boolean link, String type, String group, boolean processReadingLabels, boolean linkWithDBpedia, boolean linkToExternalGlossary, boolean splitTextbook, String senderEmail) throws NullPointerException, TOCNotFoundException, EarlyInterruptionException, BookWithoutPageNumbersException, NoIndexException {
+	public String processBookFile(String fileName, LanguageEnum lang, String bookName, boolean link, String type, String group, boolean processReadingLabels, boolean linkWithDBpedia, boolean linkToExternalGlossary, boolean splitTextbook, String senderEmail) throws NullPointerException, TOCNotFoundException, EarlyInterruptionException, BookWithoutPageNumbersException, NoIndexException, BookWithoutTextPagesException {
 
 		if(fileName != null){
 			logger.log("Processing file " + fileName);
@@ -404,6 +406,9 @@ public class ContentManager {
 			} catch (NoIndexException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} catch (BookWithoutTextPagesException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 
 			logger.log("Extraction done ForEvaluation01");
@@ -449,6 +454,9 @@ public class ContentManager {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (NoIndexException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (BookWithoutTextPagesException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
@@ -498,6 +506,9 @@ public class ContentManager {
 			} catch (NoIndexException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} catch (BookWithoutTextPagesException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 
 			logger.log("Extraction done ForEvaluation01");
@@ -543,6 +554,9 @@ public class ContentManager {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (NoIndexException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (BookWithoutTextPagesException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
@@ -1160,11 +1174,11 @@ public class ContentManager {
 			return new ArrayList<String>();
 	}
 	
-	public ArrayList<Pair<String,Integer>> getAggregatedConceptsWithFreq(String sourceBookID,ArrayList<Integer> allSegments) {
+	public Pair<ArrayList<Pair<String,Integer>>,ArrayList<Pair<String,Integer>>> getAggregatedConceptsWithFreq(String sourceBookID,Collection<Integer> allSegments) {
 		if (this.content.containsKey(sourceBookID))
 			return Persistence.getInstance(). getAggregatedConceptsWithFreq(sourceBookID, allSegments);
 		else
-			return new ArrayList<Pair<String,Integer>>();
+			return Pair.of(new ArrayList<Pair<String,Integer>>(), new ArrayList<Pair<String,Integer>>());
 	}
 
 

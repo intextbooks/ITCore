@@ -27,7 +27,7 @@ public class Line extends Text{
 	private boolean artificial = false;
 	private FormattingContainer formattingContainer;
 	
-	private Map<String, Boolean> properties = new HashMap<String, Boolean>();
+	private Map<String, String> properties = new HashMap<String, String>();
 	public Line(){
 		
 	}
@@ -200,10 +200,28 @@ public class Line extends Text{
 		this.mostFrequentLinePos();
 		this.mostFrequentStyleFeatures();
 	}
+	
+	public String getText(int startIndex){
+
+		String buffer="";
+		
+		for(int i=startIndex;i<this.getWords().size();i++){
+			if(this.getWordAt(i) != null){
+				
+				buffer+=this.getWords().get(i).getText()+" ";
+			}
+		}
+
+		buffer=buffer.trim();
+		return buffer;
+	}
 
 	
 	public Text getWordAt(int i){
 		
+		if(i < 0 || i > words.size() -1) {
+			return null;
+		}
 		return words.get(i);
 	}
 	
@@ -344,17 +362,41 @@ public class Line extends Text{
 		return str;
 	}
 	
-	public void setProperty(String key, boolean value) {
+	public void setProperty(String key, String value) {
 		this.properties.put(key, value);
 	}
 	
-	public boolean getProperty(String key) {
-		Boolean value = this.properties.get(key);
+	public void setProperty(String key, Boolean value) {
+		this.properties.put(key, String.valueOf(value));
+	}
+	
+	public boolean getPropertyAsBoolean(String key) {
+		String value = this.properties.get(key);
 		if(value != null) {
-			return value;
+			return Boolean.valueOf(value);
 		} else {
 			return false;
 		}
+	}
+	
+	public String getProperty(String key) {
+		return this.properties.get(key);
+	}
+	
+	public String getAllProperties() {
+		String buffer = "";
+		for(Entry<String, String> entry : this.properties.entrySet()) {
+			buffer += entry.getKey() + " : " + entry.getValue() + " ; ";
+		}
+		return buffer;
+	}
+	
+	public Map<String, String> getProperties(){
+		return this.properties;
+	}
+	
+	public void ingestProperties(Map<String, String> properties) {
+		this.properties.putAll(properties);
 	}
 	
 }

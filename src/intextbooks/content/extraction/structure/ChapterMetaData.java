@@ -22,6 +22,8 @@ public class ChapterMetaData {
 	boolean hasParagraph;
 	
 	int chapterHierarchy;
+	
+	boolean isNonContent;
 
 	public ChapterMetaData(int si, int s, int ls, int ei, int e, int le,double lTX, double lTY, double rBX, double rBY, String t, boolean hP, int lTS) {
 
@@ -38,6 +40,7 @@ public class ChapterMetaData {
 		rightBottomY= rBY;		
 		hasParagraph = hP;
 		lineTitleStart = lTS;
+		isNonContent = false;
 	}
 
 	public int getPageStartIndex() {
@@ -147,6 +150,16 @@ public class ChapterMetaData {
 	public void setChapterHierarchy(int chapterHierarchy) {
 		this.chapterHierarchy = chapterHierarchy;
 	}
+
+	public boolean isNonContent() {
+		return isNonContent;
+	}
+
+	public void setNonContent(boolean isNonContent) {
+		this.isNonContent = isNonContent;
+	}
+	
+	
 	
 	
 }

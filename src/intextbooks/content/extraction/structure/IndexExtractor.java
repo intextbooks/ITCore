@@ -2,6 +2,7 @@ package intextbooks.content.extraction.structure;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -37,12 +38,16 @@ import intextbooks.content.extraction.buildingBlocks.format.CharacterBlock;
 import intextbooks.content.extraction.buildingBlocks.format.Line;
 import intextbooks.content.extraction.buildingBlocks.format.Page;
 import intextbooks.content.extraction.buildingBlocks.format.Text;
+import intextbooks.content.extraction.buildingBlocks.structure.BookContent;
 import intextbooks.content.extraction.buildingBlocks.structure.IndexElement;
 import intextbooks.content.extraction.buildingBlocks.structure.IndexTerm;
+import intextbooks.content.extraction.buildingBlocks.structure.IndexTermMatch;
+import intextbooks.content.extraction.buildingBlocks.structure.IndexTermMatches;
 import intextbooks.content.extraction.buildingBlocks.structure.TOC;
 import intextbooks.content.models.formatting.FormattingDictionary;
 import intextbooks.exceptions.NoIndexException;
 import intextbooks.ontologie.LanguageEnum;
+import intextbooks.tools.utility.GeneralUtils;
 import intextbooks.tools.utility.ListOperations;
 
 
@@ -178,7 +183,7 @@ public class IndexExtractor {
 	 *
 	 **/
 
-	public List<IndexElement> extractIndex(List<Page> resourcePages, List<TOC> toc, String bookID, FormattingDictionary styleLibrary, Map<String, PDFont> fonts, boolean processReadingLabels) throws IOException, NoIndexException{
+	public List<IndexElement> extractIndex(List<Page> resourcePages, List<TOC> toc, String bookID, FormattingDictionary styleLibrary, Map<String, PDFont> fonts, boolean processReadingLabels, Map<String, String> metadata) throws IOException, NoIndexException{
 
 		SystemLogger.getInstance().log("Index extraction Start");
 
@@ -187,7 +192,7 @@ public class IndexExtractor {
 		/*
 		 * It finds the Index pages and extract the lines
 		 */
-		pseudoIndex = findIndexPages(resourcePages, toc, styleLibrary, fonts);
+		pseudoIndex = findIndexPages(resourcePages, toc, styleLibrary, fonts, metadata);
 		
 //		/*TESTING*/
 //		System.out.println(">>>>> pesudoIndex start --> Index size:" + pseudoIndex.size() );
@@ -262,12 +267,13 @@ public class IndexExtractor {
 //		while(it.hasNext()) {
 //			Line t = it.next();
 //			System.out.println(t.getText() );
+//			System.out.println("\t" + t.getAllProperties());
 //			//System.out.println(t.isArtificial() );
 //		}
 //		System.out.println(">>>>> pesudoIndex after concat lines end" );
 //		System.exit(0);
 //		/*TESTING*/
-//		
+
 		/*
 		 * Removes special cases, useful for constructing glossary for DBPEDIA enrichment
 		 */
@@ -280,19 +286,9 @@ public class IndexExtractor {
 		SystemLogger.getInstance().log("Converting index elements to internal structure ... ");
 		Vector<IndexElement> indexElements = convertToIndexElements(resourcePages, pseudoIndex);
 		
-		//* Use Noun Extraction to try to get the right label for the index element
-		if(processReadingLabels) {
-			SystemLogger.getInstance().log("Getting the reading label for the index elements according to the reference text (pages) ... ");
-			try {
-				updateIndexElementsWithNounInformation(resourcePages, indexElements);
-			} catch (Exception e) {
-				SystemLogger.getInstance().log("ERROR while updateIndexElementsWithNounInformation " + e.getMessage());
-			}
-		} else {
-			//compute just the permutations for the index elements
-			for(int i = 0; i < indexElements.size(); i++) {
-				indexElements.get(i).getLabelPermutations();
-			}
+		//compute just the permutations for the index elements
+		for(int i = 0; i < indexElements.size(); i++) {
+			indexElements.get(i).getLabelPermutations();
 		}
 
 		/*
@@ -340,11 +336,11 @@ public class IndexExtractor {
 //		System.exit(0);
 //		/*TESTING*/
 		
-		/*TESTING*/
-		//IndexElement
+//		/*TESTING*/
+//		//IndexElement
 //		Iterator<IndexElement> it = indexElements.iterator();
 //		int n = 0;
-//		while(it.hasNext() && n < 20000) {
+//		while(it.hasNext()) {
 //			n++;
 //			IndexElement el = it.next();
 //			System.out.println(el);
@@ -352,7 +348,7 @@ public class IndexExtractor {
 //			//System.out.println("permutations Size: " + el.getLabelPermutations().size() + " : " + el.getLabelPermutations());
 //		}
 //		System.exit(0);
-		/*TESTING*/
+//		/*TESTING*/
 	
 		
 		SystemLogger.getInstance().log("Index extraction....Done");
@@ -1122,7 +1118,7 @@ public class IndexExtractor {
 	 * 
 	 */
 
-	private Vector<Line> findIndexPages(List<Page> book, List<TOC> toc, FormattingDictionary styleLibrary, Map<String, PDFont> fonts) throws NoIndexException {
+	private Vector<Line> findIndexPages(List<Page> book, List<TOC> toc, FormattingDictionary styleLibrary, Map<String, PDFont> fonts, Map<String, String> metadata) throws NoIndexException {
 
 		SystemLogger.getInstance().log("Identifying Index Pages.");
 
@@ -1163,12 +1159,14 @@ public class IndexExtractor {
 
 			//1 phase: check index pages and get them as ColumnedPage
 			for(int i = pageIndex; i < book.size(); i++ ){
+				SystemLogger.getInstance().debug("CUrrent index page: " + i);
 				//first page
 				if(i==pageIndex) {
 					titlePresent = true;
 					//remove non-index lines
-					ContentExtractor.removeCopyRightLines(book.get(i).getLines(), book.get(i).getPageNumber());
+					ContentExtractor.removeCopyRightLines(book.get(i).getLines(), book.get(i).getPageNumber(), metadata);
 					ContentExtractor.removeSideLines(book.get(i).getLines());
+					
 //					/*TESTING*/
 //					System.out.println("LINES FINAL*********");
 //					SystemLogger.getInstance().setDebug(true);
@@ -1177,10 +1175,13 @@ public class IndexExtractor {
 //					}
 //					System.exit(0);
 //					/*TESTING*/
-					//cF = discoverColumnFormat(book.get(i).getLines());
-					//this.columnFormat = cF;
 				}
 				else {
+					//check for null page
+					if(book.get(i) == null || book.get(i).getLines().size() == 0) {
+						break;
+					}
+						
 					//other pages
 					titlePresent = false;
 					
@@ -1244,7 +1245,7 @@ public class IndexExtractor {
 //				/*TESTING*/
 				
 				Line originalFirstLine = book.get(i).getLineAt(0);
-				SystemLogger.getInstance().setDebug(false);
+			
 				cF = discoverColumnFormat(book.get(i).getLines());
 				//check if there are "note" lines at the beginning of the index that prevents the columns to be recognized
 				if(cF.numberOfColumns == 1 && i == pageIndex) {
@@ -1260,10 +1261,10 @@ public class IndexExtractor {
 				}
 				ColumnedPage columnedPage = asColumnedPage(book.get(i).getLines(), cF, titlePresent);
 			
-//				/*TESTING*/
+////				/*TESTING*/
 //				columnedPage.print();
-//				System.exit(0);
-//				/*TESTING*/
+////				System.exit(0);
+////				/*TESTING*/
 				
 				if(i==pageIndex) {
 					pageIndexMostLeft = calculateMostLeftRightForIndex(columnedPage.getAllLines()); 
@@ -1681,8 +1682,62 @@ public class IndexExtractor {
 				indexElements.add(temp);
 				IndexElement parent = indexElementsMap.get(temp.getParentId());
 				temp.setParent(parent);
-				indexElementsMap.put(temp.getKey(), temp);
+				if(temp.getPageNumbers().size() > 0 && temp.getPageNumbers().get(0) != -1)
+					indexElementsMap.put(temp.getKey(), temp);
+				if(pseudoIndex.get(k).getPropertyAsBoolean("crossreference")) {
+					temp.addCrossreferenceInformation(pseudoIndex.get(k).getProperty("type-crossreference"), pseudoIndex.get(k).getProperty("text-crossreference"));
+				}
 			}
+		}
+		
+		for(String key: indexElementsMap.keySet()) {
+			System.out.println("#" + key + "# " + key.length());
+		}
+		
+		//second pass for crossreferences
+		NounExtractor extractor = NounExtractor.getInstance();
+		for(IndexElement iElement : indexElements){
+			if(iElement.hasCrossreference()) {
+				System.out.println("CRT: #" + iElement.getCrossreferenceText() + "# " + iElement.getCrossreferenceText().length());
+				//System.out.println(indexElementsMap.containsKey(iElement.getCrossreferenceText()));
+				//System.out.println(indexElementsMap.containsKey(iElement.getCrossreferenceText().trim()));
+				IndexElement crossreference = indexElementsMap.get(iElement.getCrossreferenceText());
+				Long best = 0L;
+				if(crossreference == null)
+					crossreference = indexElementsMap.get(iElement.getCrossreferenceText().toLowerCase());
+				if(crossreference == null) {
+					//do exhaustive approach	
+					for(IndexElement indexE: indexElements) {
+						if(indexE != iElement && indexE.getPageNumbers().size() > 0 && indexE.getPageNumbers().get(0) != -1) {
+							ArrayList<String> permutations = indexE.getLabelPermutations();
+							ArrayList<String> permutationsFixed = new ArrayList<String>();
+							for(String permutation: permutations) {
+								permutation = intextbooks.tools.utility.StringUtils.preProcessParentesis(permutation);
+								permutationsFixed.add(permutation);
+							}
+							Long result = extractor.getTextMatch(iElement.getCrossreferenceText().trim(), permutationsFixed, "en");
+							if(result > 0 && result > best) {
+								crossreference = indexE;
+								best = result;
+								if(result >= 1)
+									break;
+							}
+						}
+					}
+				}
+				iElement.setCrossreference(crossreference);
+				/*TESTING*/
+				if(crossreference != null) {
+					System.out.println("YES !!!!!!!!!!!!!!!!!!!!!!!!!: " + best);
+					System.out.println(iElement);
+					System.out.println("\t" + crossreference);
+				} else {
+					System.out.println("NO !!!!!!!!!!!!!!!!!!!!!!!!!");
+					System.out.println(iElement);
+				}
+				/*TESTING*/
+			}
+			
 		}
 		return indexElements;
 	}
@@ -1727,7 +1782,7 @@ public class IndexExtractor {
 		System.exit(0);
 	}*/
 	
-private void updateIndexElementsWithNounInformation(List<Page> book, Vector<IndexElement> indexElements ){
+	synchronized public static void updateIndexElementsWithNounInformation(BookContent bookContent, List<IndexElement> indexElements ){
 		//SystemLogger.getInstance().setDebug(true);
 		SystemLogger.getInstance().debug("########################## updateIndexElementsWithNounInformation ##########################");
 		int elementsWithLabels = 0;
@@ -1736,11 +1791,17 @@ private void updateIndexElementsWithNounInformation(List<Page> book, Vector<Inde
 		int indexElementsPartial = 0;
 		String allText;
 		int errors = 0;
+		int noPages = 0;
+		int indexElementsP = 0;
 		NounExtractor extractor = NounExtractor.getInstance();
 		int limit = indexElements.size();
 		//int limit = 10;
+		int noCount = 0;
 		for(int i = 0; i < limit; i++) {
 			IndexElement indexElement = indexElements.get(i);
+			if(indexElement.isArtificial())
+				continue;
+			indexElementsP++;
 			SystemLogger.getInstance().log("Getting reading label for: " + indexElement.getKey());
 			ArrayList<String> permutations = indexElements.get(i).getLabelPermutations();
 			List<Integer> pages = indexElements.get(i).getPageIndexes();
@@ -1750,7 +1811,7 @@ private void updateIndexElementsWithNounInformation(List<Page> book, Vector<Inde
 			SystemLogger.getInstance().debug("Permutations: " + permutations);
 			SystemLogger.getInstance().debug("Pages: " + pages.size());
 			Set<Integer> hitPages = new HashSet<Integer>();
-			numberOfPages += pages.size();
+			//numberOfPages += pages.size();
 			//if just one element, don't run the algorithm
 //			if(permutations.size() == 1) {
 //				indexElement.setFullLabel(true);
@@ -1762,10 +1823,13 @@ private void updateIndexElementsWithNounInformation(List<Page> book, Vector<Inde
 			Map<String, Integer>  fullLabelMap = new HashMap<String,Integer>();
 			String partialLabel = null;
 			boolean oneFullLabel = false;
+			boolean normalSearch = false;
 			for(Integer page: pages) {
 				if(page != -1) {
+					numberOfPages++;
 					boolean fullLabel = false;
-					allText = book.get(page).getText().toLowerCase().replaceAll("\n", " ");
+					//allText = book.get(page).getText().toLowerCase().replaceAll("\n", " ");
+					allText = bookContent.getContentOfPage(page).toLowerCase().replaceAll("\n", " ");
 					ArrayList<String> sentences = Extractor.extractSentencesFromText(allText);
 					try {
 						JSONArray array = extractor.getJSON(permutations, sentences, "en");
@@ -1793,7 +1857,7 @@ private void updateIndexElementsWithNounInformation(List<Page> book, Vector<Inde
 								}
 								//process book_string
 								for(Object str: book_strings) {
-									indexElement.addPageToSentence(page, (String)str);
+									indexElement.addPageToSentence(page, -1, (String)str);
 								}
 								if(fullLabel) {
 									Integer count = fullLabelMap.get(correctKey);
@@ -1812,7 +1876,15 @@ private void updateIndexElementsWithNounInformation(List<Page> book, Vector<Inde
 								int index = allText.indexOf(permutation.toLowerCase());
 								if(index != -1) {
 									hitPages.add(page);
+									indexElement.addPageToSentence(page, -1, permutation);
+									Integer count = fullLabelMap.get(permutation);
+									if(count == null) {
+										count = 0;
+									}
+									count++;
+									fullLabelMap.put(permutation, count);
 									found = true;
+									
 									break;
 								} 
 							}
@@ -1821,13 +1893,31 @@ private void updateIndexElementsWithNounInformation(List<Page> book, Vector<Inde
 								int index = allText.indexOf(searchString.toLowerCase());
 								if(index != -1) {
 									hitPages.add(page);
+									partialLabel = searchString;
+									found = true;
+									normalSearch = true;
 								}
+							}
+								
+							if(!found) {
+								System.out.println("NOOOO");
+								System.out.println("indexElement: " + indexElement.getKey());
+								System.out.println("page: " + page);
+								noCount++;
+//								if(noCount == 2) {
+//									System.out.println(bookContent.getContentOfPage(page).toLowerCase());
+//									System.exit(0);
+//								}
+								
 							}
 						}
 					} catch (Exception e) {
 						e.printStackTrace();
 						errors++;
 					}
+				} else {
+					noPages++;
+					break;
 				}
 			}
 			
@@ -1859,82 +1949,36 @@ private void updateIndexElementsWithNounInformation(List<Page> book, Vector<Inde
 			
 			System.out.println(indexElement);
 			
+//			if(normalSearch) {
+//				System.exit(0);
+//			}
+			
 		}
 		
 		SystemLogger.getInstance().debug("TERM Detection approach ********************************************");
-		SystemLogger.getInstance().debug("Number of IndexElements: " + indexElements.size());
+		SystemLogger.getInstance().debug("Number of IndexElements: " + indexElementsP);
 		SystemLogger.getInstance().debug("indexElementsFull: " + indexElementsFull);
 		SystemLogger.getInstance().debug("indexElementsPartial: " + indexElementsPartial);
+		SystemLogger.getInstance().debug("indexElements no pages: " + noPages);
 		SystemLogger.getInstance().debug("Number of index pages: " + numberOfPages);
 		SystemLogger.getInstance().debug("Number of index pages with at least one label match: " + elementsWithLabels);
 		SystemLogger.getInstance().debug("errors: " + errors);
-		//CountDirectLabelsApproachForIndexElements(book,indexElements);
+		//CountDirectLabelsApproachForIndexElements(bookContent,indexElements);
 	}
 	
-	private void CountNounPhrasesApproachLabelsForIndexElements(List<Page> book, Vector<IndexElement> indexElements ){
-		
-		int elementsWithLabels = 0;
-		int numberOfPages= 0;
-		String allText;
-		int errors = 0;
-		for(int i = 0; i < indexElements.size(); i++) {
-			IndexElement indexElement = indexElements.get(i);
-			ArrayList<String> permutations = indexElements.get(i).getLabelPermutations();
-			List<Integer> pages = indexElements.get(i).getPageIndexes();
-			boolean flag = false;
-			SystemLogger.getInstance().debug("****************");
-			SystemLogger.getInstance().debug("" + indexElements.get(i));
-			SystemLogger.getInstance().debug("Permutations: " + permutations);
-			SystemLogger.getInstance().debug("Pages: " + pages.size());
-			Set<Integer> hitPages = new HashSet<Integer>();
-			numberOfPages += pages.size();
-			for(String permutation: permutations) {
-				for(Integer page: pages) {
-					if(page != -1) {
-						//System.out.println("# page: "+ page);
-						allText = book.get(page).getText().toLowerCase().replaceAll("\n", " ");
-						ArrayList<String> sentences = Extractor.extractSentencesFromText(allText);
-						Iterator<String> it =  sentences.iterator();
-						try {
-							JSONArray array = NounExtractor.getInstance().getJSON(permutations, sentences, "en");
-							//System.out.println("permutations--> " + permutations);
-							//System.out.println("JSON ALL--> " + array.toJSONString());
-							
-							if(array.size() == 0 && permutations.size() > 1) {
-								//System.out.println("LAST:  " + indexElement.getLastPartAsArrayList().get(0));
-								array = NounExtractor.getInstance().getJSON(indexElement.getLastPartAsArrayList(), sentences, "en");
-								//System.out.println("JSON LAST--> " + array.toJSONString());
-							}
-							
-							if(array.size() != 0) {
-								hitPages.add(page);
-								//System.out.println("\t"+permutation);
-							}
-						} catch (Exception e) {
-							e.printStackTrace();
-							errors++;
-						}
-					}
-					
-				}
-			}
-			
-			elementsWithLabels += hitPages.size();
-			
-		}
-		SystemLogger.getInstance().debug("Number of IndexElements: " + indexElements.size());
-		SystemLogger.getInstance().debug("Number of index pages: " + numberOfPages);
-		SystemLogger.getInstance().debug("Number of index pages with at least one label match: " + elementsWithLabels);
-		SystemLogger.getInstance().debug("errors: " + errors);
-		
-	}
-private void CountDirectLabelsApproachForIndexElements(List<Page> book, Vector<IndexElement> indexElements ){
+	
+private static void CountDirectLabelsApproachForIndexElements(BookContent bookContent, List<IndexElement> indexElements ){
 		
 		int elementsWithLabels = 0;
 		int numberOfPages= 0;
 		int indexElementsFull = 0;
 		int indexElementsPartial = 0;
+		int noPages = 0;
+		int indexElementsP = 0;
 		for(int i = 0; i < indexElements.size(); i++) {
+			if(indexElements.get(i).isArtificial())
+				continue;
+			indexElementsP++;
 			List<String> permutations = indexElements.get(i).getLabelPermutations();
 			List<Integer> pages = indexElements.get(i).getPageIndexes();
 			boolean flag = false;
@@ -1943,7 +1987,7 @@ private void CountDirectLabelsApproachForIndexElements(List<Page> book, Vector<I
 			SystemLogger.getInstance().debug("Permutations: " + permutations);
 			SystemLogger.getInstance().debug("Pages: " + pages.size());
 			Set<Integer> hitPages = new HashSet<Integer>();
-			numberOfPages += pages.size();
+			//numberOfPages += pages.size();
 //			for(String permutation: permutations) {
 //				for(Integer page: pages) {
 //					if(page != -1) {
@@ -1963,8 +2007,10 @@ private void CountDirectLabelsApproachForIndexElements(List<Page> book, Vector<I
 			boolean conceptFound = false;
 			for(Integer page: pages) {
 				if(page != -1) {
+					numberOfPages++;
 					boolean found = false;
-					String pageText = book.get(page).getText().toLowerCase();
+					//String pageText = book.get(page).getText().toLowerCase();
+					String pageText = bookContent.getContentOfPage(page).toLowerCase();
 					for(String permutation: permutations) {		
 						int index = pageText.indexOf(permutation.toLowerCase());
 						if(index != -1) {
@@ -1983,7 +2029,10 @@ private void CountDirectLabelsApproachForIndexElements(List<Page> book, Vector<I
 							conceptFound = true;
 						}
 					}
-				}	
+				}
+				else {
+					noPages++;
+				}
 			}
 			
 			if(conceptFound) {
@@ -1998,13 +2047,70 @@ private void CountDirectLabelsApproachForIndexElements(List<Page> book, Vector<I
 			
 		}
 		SystemLogger.getInstance().debug("DirectLabelsApproachForIndexElements -----------------------");
-		SystemLogger.getInstance().debug("Number of IndexElements: " + indexElements.size());
+		SystemLogger.getInstance().debug("Number of IndexElements: " + indexElementsP);
 		SystemLogger.getInstance().debug("indexElementsFull: " + indexElementsFull);
 		SystemLogger.getInstance().debug("indexElementsPartial: " + indexElementsPartial);
+		SystemLogger.getInstance().debug("indexElements noPages: " + noPages);
 		SystemLogger.getInstance().debug("Number of index pages: " + numberOfPages);
 		SystemLogger.getInstance().debug("Number of index pages with at least one label match: " + elementsWithLabels);
 	}
+private void CountNounPhrasesApproachLabelsForIndexElements(List<Page> book, Vector<IndexElement> indexElements ){
 	
+	int elementsWithLabels = 0;
+	int numberOfPages= 0;
+	String allText;
+	int errors = 0;
+	for(int i = 0; i < indexElements.size(); i++) {
+		IndexElement indexElement = indexElements.get(i);
+		ArrayList<String> permutations = indexElements.get(i).getLabelPermutations();
+		List<Integer> pages = indexElements.get(i).getPageIndexes();
+		boolean flag = false;
+		SystemLogger.getInstance().debug("****************");
+		SystemLogger.getInstance().debug("" + indexElements.get(i));
+		SystemLogger.getInstance().debug("Permutations: " + permutations);
+		SystemLogger.getInstance().debug("Pages: " + pages.size());
+		Set<Integer> hitPages = new HashSet<Integer>();
+		numberOfPages += pages.size();
+		for(String permutation: permutations) {
+			for(Integer page: pages) {
+				if(page != -1) {
+					//System.out.println("# page: "+ page);
+					allText = book.get(page).getText().toLowerCase().replaceAll("\n", " ");
+					ArrayList<String> sentences = Extractor.extractSentencesFromText(allText);
+					Iterator<String> it =  sentences.iterator();
+					try {
+						JSONArray array = NounExtractor.getInstance().getJSON(permutations, sentences, "en");
+						//System.out.println("permutations--> " + permutations);
+						//System.out.println("JSON ALL--> " + array.toJSONString());
+						
+						if(array.size() == 0 && permutations.size() > 1) {
+							//System.out.println("LAST:  " + indexElement.getLastPartAsArrayList().get(0));
+							array = NounExtractor.getInstance().getJSON(indexElement.getLastPartAsArrayList(), sentences, "en");
+							//System.out.println("JSON LAST--> " + array.toJSONString());
+						}
+						
+						if(array.size() != 0) {
+							hitPages.add(page);
+							//System.out.println("\t"+permutation);
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+						errors++;
+					}
+				}
+				
+			}
+		}
+		
+		elementsWithLabels += hitPages.size();
+		
+	}
+	SystemLogger.getInstance().debug("Number of IndexElements: " + indexElements.size());
+	SystemLogger.getInstance().debug("Number of index pages: " + numberOfPages);
+	SystemLogger.getInstance().debug("Number of index pages with at least one label match: " + elementsWithLabels);
+	SystemLogger.getInstance().debug("errors: " + errors);
+	
+}
 private void printPageText(List<Page> book, Vector<IndexElement> indexElements ){
 		
 		int elementsWithLabels = 0;
@@ -2041,51 +2147,170 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 //		/*TESTING*/
 
 		SystemLogger.getInstance().log("Storing Index to Database");
-
 		for(int i = 0 ; i<index.size(); i++){
 				index.get(i).storeInDB(bookID);
+		}
+		SystemLogger.getInstance().log("Updating crossrefrences in database");
+		for(int i = 0 ; i<index.size(); i++){
+				if(index.get(i).hasCrossreference())
+					index.get(i).updateCrossreference();
 		}
 
 		SystemLogger.getInstance().log("Index Storage End");
 	}
 	
-	public void matchIndexTermsToSegments(ArrayList<List<Line>> arrayList, String bookID, List<IndexElement> index){
-		
-//		/*TESTING*/
-//		System.out.println("######################## index");
-//		for(IndexTerm it : index) {
-//			System.out.println("> " + it.getID());
-//		}
-//		/*TESTING*/
+	public void matchIndexTermsToSegments(List<IndexElement> index, BookContent bookContent){
+		NounExtractor extractor = NounExtractor.getInstance();
 		for(int i = 0 ; i<index.size(); i++){
+			SystemLogger.getInstance().log("matching " + index.get(i).getKey() + "(" + i + "/" + index.size() + ")");
+			Map<Integer,List<Integer>>  segments = null;
 
-			List<Integer> segments = null;
-
-			if(index.get(i).getPageNumbers() != null){
-
-//				/*TESTING*/
-//				try {
-//
-//					System.out.println("######################## index");
-//					System.out.println("Original ID: " + index.get(i).getID());
-//					System.out.println("ID: " + index.get(i).getID().replaceAll("<>", ""));
-//					System.out.println("PageIndeces: " + index.get(i).getPageIndicies().toString());
-//					TimeUnit.SECONDS.sleep(2);
-//				} catch (InterruptedException e) {
-//					// TODO Auto-generated catch block
-//					e.printStackTrace();
-//				}
-//				/*TESTING*/
-				segments = segmentOfIndex(arrayList, bookID, index.get(i).getNormalizedKey(), index.get(i).getPageIndexes());
+			if(index.get(i).getPageNumbers() != null && !index.get(i).isArtificial()){
+				segments = segmentOfIndex(bookContent, index.get(i), extractor);
 			}
 			else{
-
-				segments = new ArrayList<Integer> ();
-				segments.add(-1);
+				segments = new HashMap<Integer,List<Integer>>();
+				ArrayList<Integer> list = new ArrayList<Integer>();
+				list.add(-1);
+				segments.put(-1, list);
 			}
 			index.get(i).setPageSegments(segments);
 		}
+		
+		//for artificial terms: second time
+		for(int i = 0 ; i<index.size(); i++){
+			if(index.get(i).isArtificial()) {
+				Map<Integer,List<Integer>> segments = new HashMap<Integer,List<Integer>>();
+				
+				for(int j = 0 ; j<index.size(); j++){
+					if(i != j) {
+						if(index.get(j).getParent() != null && index.get(j).getParent() == index.get(i)) {
+							segments.putAll(index.get(j).getPageSegments());
+						}
+					}
+				}
+				
+				index.get(i).setPageSegments(segments);
+			}
+		}
 	}
+	
+	public static Map<Integer,List<Integer>> segmentOfIndex(BookContent bookContent, IndexElement indexElement, NounExtractor extractor){
+		Map<Integer,List<Integer>> correspondingSegments = new HashMap<Integer,List<Integer>> ();
+		String indexID = indexElement.getNormalizedKey();
+		List<Pair<Integer,Integer>> pages = indexElement.getPages();
+		
+//		List<String> list1 = new ArrayList(Arrays.asList("ball bearing example data" , "law of large numbers", "\"µ ± a few σ\" rule", "Billingsley, P.", "Ross, S.M.", "central limit theorem applications" ));
+//		List<String> list2 = new ArrayList(Arrays.asList("Hypothesis composite", "Random variable discrete"));
+//		if(list2.contains(indexID)) {
+//			SystemLogger.getInstance().setDebug(true);
+//		} else {
+//			List<Integer> list = new ArrayList<Integer>();
+//			list.add(-1);
+//			SystemLogger.getInstance().setDebug(false);
+//			correspondingSegments.put(-1,list);
+//			return correspondingSegments;
+//		}
+		
+		/*TESTING*/
+		SystemLogger.getInstance().debug("====================segmentOfIndex=========================");
+		SystemLogger.getInstance().debug(">>>indexID: " + indexElement.getKey());
+		SystemLogger.getInstance().debug(">>>indexElement: " + indexElement);
+		/*TESTING*/
+		
+		
+		for(Pair<Integer, Integer> page: pages) {
+			int pageNumber = page.getLeft();
+			int pageIndex = page.getRight();
+			if(pageNumber == -1) {
+				List<Integer> list = new ArrayList<Integer>();
+				list.add(-1);
+				correspondingSegments.put(-1, list);
+				continue;
+			}
+			SystemLogger.getInstance().debug("-------PAGE-------");
+			SystemLogger.getInstance().debug("% page number: " + pageNumber);
+			SystemLogger.getInstance().debug("% page index: " + pageIndex);
+			List<Integer> segments = bookContent.findSegmentsOnPage(pageIndex);
+			SystemLogger.getInstance().debug("page index: "+ (pageIndex) + " % segments on page (size: " + segments.size() + ") : " + segments);
+			//do search
+			IndexTermMatches queue = new IndexTermMatches();
+			for(Integer segment: segments) {
+				SystemLogger.getInstance().debug("testing  segment: " + segment);
+				IndexTermMatch match = bookContent.segmentContainsTerm(segment, pageIndex, indexElement, extractor);
+				SystemLogger.getInstance().debug("\tres: " + match);
+				if(match != null) {
+					queue.add(match);
+				}
+			}
+			
+			IndexTermMatch result = queue.poll();
+			
+			if(result == null) {
+				if(segments.size() == 1) {
+					SystemLogger.getInstance().debug("-> SELECTION: only one option , " + segments.get(0));
+					List<Integer> list = new ArrayList<Integer>();
+					list.add(segments.get(0));
+					correspondingSegments.put(pageNumber, list);
+				} else if (segments.size() > 1) {
+					
+					SystemLogger.getInstance().debug("NO SELECTION AT ALL: multiple options");
+					//case1: index term includes previous and next page -> assign to all segments on page
+					if(GeneralUtils.containsPageNumber(pages, pageNumber -1) && GeneralUtils.containsPageNumber(pages, pageNumber +1)) {
+						correspondingSegments.put(pageNumber, segments);
+						SystemLogger.getInstance().debug("CASE1");
+					//case 2: index term includes the following page, but no the previous one -> select the last segment
+					} else if (GeneralUtils.containsPageNumber(pages, pageNumber +1)) {
+						List<Integer> list = new ArrayList<Integer>();
+						list.add(segments.get(segments.size()-1));
+						correspondingSegments.put(pageNumber, list);
+						SystemLogger.getInstance().debug("CASE2");
+					}
+					else {
+						//case3: next page is not part of the term -> select the segment that is already selected
+						List<Integer> candidates = new ArrayList<Integer>();
+						//if any of the segments has been selected before, put it as candidate
+						for(Integer segment: segments) {
+							if(GeneralUtils.containsSegment(correspondingSegments, segment)) {
+								candidates.add(segment);
+								SystemLogger.getInstance().debug("CASE3 candidate: " + segment);
+							}
+						}
+						if(candidates.size() == 0)
+							candidates = segments;
+						//select the last segment
+						List<Integer> list = new ArrayList<Integer>();
+						list.add(candidates.get(candidates.size()-1));
+						correspondingSegments.put(pageNumber, list);
+						SystemLogger.getInstance().debug("CASE3");
+					}	
+				} else {
+					List<Integer> list = new ArrayList<Integer>();
+					list.add(-1);
+					correspondingSegments.put(pageNumber, list);
+				}
+			} else {
+				for(String noun: result.getNounString())
+						indexElement.addNounPhrase(noun);
+				for(String sentence: result.getBookString())
+						indexElement.addPageToSentence(pageNumber, result.getSegmentID(), sentence);
+				if(result.isFull()) {
+					indexElement.setFullLabel(true);
+					indexElement.setLabel(result.getReadingOrderString());
+				}
+				if(result.getPOS() != null && result.getPOS().contains("PROPN"))
+					indexElement.setPropn(true);
+				List<Integer> list = new ArrayList<Integer>();
+				list.add(result.getSegmentID());
+				correspondingSegments.put(pageNumber, list);
+				SystemLogger.getInstance().debug("SELECTION: " + result);
+			}
+		}
+		
+		
+		return correspondingSegments;
+	}
+		
 
 	/**
 	 *
@@ -2096,8 +2321,14 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 	 * @return
 	 */
 
-	public static List<Integer> segmentOfIndex(ArrayList<List<Line>> arrayList,  String bookID, String indexID, List<Integer> pageIndices){
+	public static List<Integer> segmentOfIndex(ArrayList<List<Line>> pagesAndLines,  String bookID, String indexID, List<Integer> pageIndices){
+		
 		/*TESTING*/
+//		if(indexID.equals("law of large numbers") || indexID.contains("µ ± a few σ")) {
+//			SystemLogger.getInstance().setDebug(true);
+//		} else {
+//			SystemLogger.getInstance().setDebug(false);
+//		}
 		SystemLogger.getInstance().debug("====================segmentOfIndex=========================");
 		SystemLogger.getInstance().debug(">>>indexID: " + indexID);
 		SystemLogger.getInstance().debug(">>>pageIndices: " + pageIndices);
@@ -2126,7 +2357,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 				else{
 
 					//System.out.println("% result from arrayList.get(pageNumber): " + arrayList.get(pageNumber).get(0).getText());
-					float pos = searchForWords(arrayList.get(pageNumber), indexID.split(" "));
+					float pos = searchForWords(pagesAndLines.get(pageNumber), indexID.split(" "));
 					SystemLogger.getInstance().debug("pos: " + pos);
 			
 					int segmt = cm.getSegmentOfWord(bookID, pageNumber, pos);
@@ -2144,11 +2375,11 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 					try {
 						if(segmt == -1) {
 							correspondingSegments.add(segments.get(segments.size()-1));
-							//System.out.println("1 assigning: " + segments.get(segments.size()-1));
+							SystemLogger.getInstance().debug("1 assigning: " + segments.get(segments.size()-1));
 						}
 						else {
 							correspondingSegments.add(segmt);
-							//System.out.println("2 assigning: " + segmt);
+							SystemLogger.getInstance().debug("2 assigning: " + segmt);
 						}
 					} catch (ArrayIndexOutOfBoundsException e) {
 //						/*TESTING*/
@@ -2419,7 +2650,6 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 	 */
 
 	private void exhaustiveIndexDashFix(Vector <Line> pseudoIndex ){
-
 		//join lines with a splitted number range
 		for(int i = 0 ; i < pseudoIndex.size() ; i++){
 			String text = StringOperations.cleanStringForRegex(pseudoIndex.get(i).getLastWordText());
@@ -2478,7 +2708,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 				String originalText = pseudoIndex.get(i).getWordAt(j).getText();
 				String text = StringOperations.cleanStringForRegex(originalText);			
 				if(text.matches(StringOperations.getRegexNumberRange())){	
-
+					SystemLogger.getInstance().debug("#### " + text);
 					String [] separated = text.split("[-|–]");
 
 					//@i.alpizarchacon: changed to add all numbers in the range, not only the start and end
@@ -2489,9 +2719,21 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 							String endString = separated[1].charAt(separated[1].length()-1) != originalText.charAt(originalText.length()-1) ? String.valueOf(originalText.charAt(originalText.length()-1)) : "";
 							int start = Integer.parseInt(separated[0]);
 							int end = Integer.parseInt(separated[1]);
+
 							if(biggetsPageNumber == -1) {
 								biggetsPageNumber = this.cm.getPageNumbersOfBook(bookID).get(this.cm.getPageNumbersOfBook(bookID).size() - 1);
 							}
+							
+							//fix range: e.g., 586-9
+							if(end < start) {
+								int sizeEnd = String.valueOf(end).length();
+								int sizeStart = String.valueOf(start).length();
+								if(sizeEnd < sizeStart) {
+									String newEnd =  String.valueOf(start).substring(0, String.valueOf(start).length() -sizeEnd) + String.valueOf(end) ;
+									end = Integer.valueOf(newEnd);
+								}
+							}
+							
 							if(start <= end && start <= this.biggetsPageNumber && end <= this.biggetsPageNumber) {
 								
 								String localPageReferenceDelimiter = this.pageReferenceDelimiter;
@@ -2544,6 +2786,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 				}
 			}
 		}
+		
 	}
 	
 	private void exhaustiveNotesFix(Vector <Line> pseudoIndex ){
@@ -2685,6 +2928,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 	 * Also, it finds the delimiter between the pages references 
 	 */
 	private void findTermDelimeter(Vector <Line> pseudoIndex ){
+
 		List<String> delimiters = new ArrayList<String>();
 		List<String> paraReferenceDelimiters = new ArrayList<String>();
 		Iterator<Line> it = pseudoIndex.iterator();
@@ -2695,15 +2939,20 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 			Line line = it.next();
 			List<Text> words = line.getWords();
 			
+			SystemLogger.getInstance().debug("I: " + line.getText());
+			SystemLogger.getInstance().debug("w: " + words.size());
 			//find first locator in line
 			for(int i = 0; i < words.size(); i++) {
 				Text word = words.get(i);
+				SystemLogger.getInstance().debug("checking: " + word.getText() + " length:" + word.getText().length());
 				boolean pageReference = this.wordIsPageReference(word.getText());
+				SystemLogger.getInstance().debug("result: " + pageReference);
 				if(pageReference) {
 					firstPageReferences = i;
 					break;
 				}
 			}
+			SystemLogger.getInstance().debug("firstPageReferences: " + firstPageReferences);
 			
 			//find delimiters
 			if(firstPageReferences != -1) {
@@ -2727,6 +2976,8 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 					Text nextWord = words.get(i + 1);
 					//if next word is a page reference (could be that it is a cross-reference word
 					boolean pageReference = this.wordIsPageReference(nextWord.getText());
+					SystemLogger.getInstance().debug("nextWord: " + nextWord.getText());
+					SystemLogger.getInstance().debug("pageReference: " + pageReference);
 					if(pageReference) {
 						
 						String lastCharOfWord = currentWord.getText().substring(currentWord.getText().length() - 1);
@@ -2744,9 +2995,13 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 		}
 		//find the most used delimiter
 		String delimiter = ListOperations.findMostFrequentItem(delimiters);
+		System.out.println(delimiter);
+		System.out.println(paraReferenceDelimiters);
 		String pageReferenceDelimiter = ListOperations.findMostFrequentItem(paraReferenceDelimiters);
+		if(pageReferenceDelimiter == null)
+			pageReferenceDelimiter = "space";
 		//SystemLogger.getInstance().setDebug(true);
-		SystemLogger.getInstance().debug("most used delimiter: $" + delimiter + "$" + " " + delimiter.length());
+		SystemLogger.getInstance().debug("most used delimiter: $" + delimiter + "$");
 		SystemLogger.getInstance().debug("most used page reference delimiter : $" + pageReferenceDelimiter + "$" + " " + pageReferenceDelimiter.length());
 		this.termDelimiter = delimiter;
 		this.pageReferenceDelimiter = pageReferenceDelimiter.equals("space")? " " : pageReferenceDelimiter;
@@ -2760,6 +3015,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 	
 	
 	private void exhaustiveSeeCasesResolver(Vector <Line> pseudoIndex ){
+		//SystemLogger.getInstance().setDebug(true);
 		//1-> get the normal font for the words
 		List<String> fonts = new ArrayList<String>();
 		for(int i = 0 ;i < pseudoIndex.size(); i++){
@@ -2776,6 +3032,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 		Pattern pattern;
 		Matcher matcher;
 		List<String> seeList = WordListCheck.getSeeList();
+		List<String> seeAlsoList = WordListCheck.getSeeAlsoList();
 		
 		int nextTermSameIndentation = 0;
 		int nextTermDiffIndentation = 0;
@@ -2822,6 +3079,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 		SystemLogger.getInstance().debug("nextTermDiffIndentation: " + nextTermDiffIndentation);
 		SystemLogger.getInstance().debug("continuedLineSameIndentation: " + continuedLineSameIndentation);
 		SystemLogger.getInstance().debug("continuedLineDiffIndentation: " + continuedLineDiffIndentation);
+		SystemLogger.getInstance().debug("onlyBiggerX: " + onlyBiggerX);
 
 		//2-> see if the "see" words appears and it is special (different font, after . or , or ()
 		for(int i = 0 ; i < pseudoIndex.size(); i++){
@@ -2832,6 +3090,8 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 			for(int w=0; w< lineWords.size(); w++) {
 				Text word = lineWords.get(w);
 				String text = word.getText().toLowerCase();
+				
+				//if any result
 				for(String see: seeList) {
 					regex = "[" + IndexExtractor.seeDelimiters + "]?\\b" + see +"\\b";
 				    pattern = Pattern.compile(regex);
@@ -2853,7 +3113,27 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 							while(y < pseudoIndex.size()) {
 								Line tmpLine = pseudoIndex.get(y);
 								if(!lineHasPageReferences(tmpLine) && !lineContainsSeeCase(tmpLine, null , textFont, seeList)) {
-									if((onlyBiggerX && (int) tmpLine.getStartPositionX() > previousLineStartPositionX) || (!onlyBiggerX || !first) && (int) tmpLine.getStartPositionX() >= previousLineStartPositionX){
+									//check if the reference is the last text in the line
+									boolean lastWordOfLine = false;
+									
+									if(w == lineWords.size() - 1)
+										lastWordOfLine = true;
+									if(!lastWordOfLine) {
+										String textOfLine = line.getText(w);
+										for(String seeAlso: seeAlsoList) {
+											regex = "[" + IndexExtractor.seeDelimiters + "]?\\b" + seeAlso +"\\b";
+										    pattern = Pattern.compile(regex);
+										    matcher = pattern.matcher(textOfLine);
+										    if(matcher.find()) {
+										    	if(matcher.end() >= textOfLine.length()) {
+										    		lastWordOfLine = true;
+											    	break;
+										    	}
+										    	
+										    }
+										}
+									}
+									if((lastWordOfLine)||(onlyBiggerX && (int) tmpLine.getStartPositionX() > previousLineStartPositionX) || (!onlyBiggerX || !first) && (int) tmpLine.getStartPositionX() >= previousLineStartPositionX){
 										previousLineStartPositionX = (int) tmpLine.getStartPositionX();
 										line.addWords(tmpLine.getWords());
 										line.extractText();
@@ -2866,16 +3146,18 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 									break;
 								}
 							}
-							line.setProperty("crossreference", true);
-							SystemLogger.getInstance().debug("FINAL LINE 1: " + line.getText());
+							SystemLogger.getInstance().debug("Complete LINE: " + line.getText());
 							break words;
 				    	}
 					}
 				}
-			}
-			
-			//3-> additional fixes
+			}		
+			//3-> store and erase "see/also" case + additional fixes
 			if(indexWord != -1) {
+				//extract see/also text
+				SystemLogger.getInstance().debug("---> " + line.getText(indexWord));
+				SystemLogger.getInstance().debug("#" + line.getText());
+				Pair<Integer, String> crossreferenceValues = this.typeOfCrossreference(line.getText(indexWord), seeList, seeAlsoList);
 				//remove "see" from  line
 				line.removeWordsFrom(indexWord);
 				//if line is empty, remove it
@@ -2884,10 +3166,13 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 					SystemLogger.getInstance().debug("FINAL LINE removed");
 					if(i-1 >= 0) {
 						line = pseudoIndex.get(i-1);
-						line.setProperty("crossreference", true);
 					} else 
 						continue;
 				}
+				//set property to identify that the line contained a "see/also" case
+				line.setProperty("crossreference", true);
+				line.setProperty("type-crossreference", String.valueOf(crossreferenceValues.getLeft()));
+				line.setProperty("text-crossreference", crossreferenceValues.getRight());
 				//remove last '.' || ',' before "see" line
 				Text lastWord = line.getLastWord();
 				String lastWordText = lastWord.getText();
@@ -2897,6 +3182,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 				}
 				line.extractText();
 				SystemLogger.getInstance().debug("FINAL LINE: " + line.getText());
+				SystemLogger.getInstance().debug(line.getAllProperties());
 			}	
 		}	
 //		/*TESTING*/
@@ -2933,58 +3219,48 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 		return false;
 	}
 	
+	private Pair<Integer, String> typeOfCrossreference(String text, List<String> seeList, List<String> seeAlsoList) {
+
+		//try with see also
+		for(String seeAlso: seeAlsoList) {
+			String regex = "[" + IndexExtractor.seeDelimiters + "]?\\b" + seeAlso +"\\b";
+		    Pattern pattern = Pattern.compile(regex);
+		    Matcher matcher = pattern.matcher(text.toLowerCase());
+			//first check
+		    if(matcher.find()) {
+		    	if(matcher.end()+1 >= text.length()) {
+		    		return Pair.of(1, "");
+		    	}
+		    	return Pair.of(1, cleanReferenceString(text.substring(matcher.end()+1).trim()));
+		    }
+		}
+		
+		//try with see
+		for(String see: seeList) {
+			String regex = "[" + IndexExtractor.seeDelimiters + "]?\\b" + see +"\\b";
+		    Pattern pattern = Pattern.compile(regex);
+		    Matcher matcher = pattern.matcher(text.toLowerCase());
+			//first check
+		    if(matcher.find()) {
+		    	//SystemLogger.getInstance().debug(""+matcher.end());
+		    	//SystemLogger.getInstance().debug(""+text.length());
+		    	//SystemLogger.getInstance().debug(""+text);
+		    	if(matcher.end()+1 > text.length())
+		    		return Pair.of(0, "");
+		    	return Pair.of(0, cleanReferenceString(text.substring(matcher.end()+1).trim()));
+		    }
+		}
+		
+		return Pair.of(0, "");
+	}
 	
-	private void removeWordsAfterText(Line line, String text) {
-		
-		
-		int startRemoving = -1;
-		
-		//first: complete match
-		for(int i = 0; i < line.size();i++) {
-			
-			String wordText = line.getWordAt(i).getText().replaceAll("[,.]", "").replace(":", "");
-			wordText = intextbooks.tools.utility.StringUtils.preProcessParentesis(wordText);
-			SystemLogger.getInstance().debug("w: "+ wordText);
-			if(wordText.equalsIgnoreCase(text)) {
-				startRemoving = i;
-				break;
-			}
+	private String cleanReferenceString(String input) {
+		String characters = ")]}.";
+		String last = input.substring(input.length()-1);
+		if(characters.contains(last)) {
+			input = input.substring(0, input.length()-1);
 		}
-		
-		//second: partial match
-		if(startRemoving == -1) {
-			for(int i = 0; i < line.size();i++) {
-				
-				String wordTextOriginal = line.getWordAt(i).getText().replaceAll("[,.]", "").replace(":", "");
-				String wordText = line.getWordAt(i).getText().toLowerCase().replaceAll("[,.]", "").replace(":", "");
-				wordText = intextbooks.tools.utility.StringUtils.preProcessParentesis(wordText);
-				wordTextOriginal = intextbooks.tools.utility.StringUtils.preProcessParentesis(wordTextOriginal);
-				int findPos = wordText.indexOf(text);
-				if(findPos != -1) {
-					//remove extra chars
-					wordText = wordTextOriginal.substring(0, findPos);
-					if(wordText.length() > 0) {
-						line.getWordAt(i).setText(wordText.replace("(", ""));
-						startRemoving = i + 1;
-					} else {
-						startRemoving = i;
-					}
-					break;
-				}
-			}
-		} 
-		
-		while(startRemoving < line.size() && startRemoving >= 0) {
-			line.removeWordAt(startRemoving);
-		}
-		
-		if(line.size() >= 1) {
-			String newText = line.getWordAt(line.size()-1).getText();
-			newText = newText.replaceAll("[,;.]", "");
-			line.getWordAt(line.size()-1).setText(newText);
-		}
-		
-		line.extractText();
+		return input;
 	}
 	
 	private boolean allNumbers(String text) {
@@ -3129,9 +3405,22 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 			biggetsPageNumber = this.cm.getPageNumbersOfBook(bookID).get(this.cm.getPageNumbersOfBook(bookID).size() - 1);
 		}
 		
+		String originalString = text;
 		text = StringOperations.cleanStringForRegex(text);
 		if(text.matches(StringOperations.getRegexNumber())) {
-			int val = Integer.valueOf(text);
+			int val = 0;
+			try {
+				val = Integer.valueOf(text);
+			} catch (NumberFormatException e) {
+				boolean allNumbers = true;
+				for(char c: originalString.toCharArray()) {
+					if(c != 44 && (c < 48 || c > 57)) {
+						allNumbers = false;
+						break;
+					}
+				}
+				return allNumbers;
+			}
 			if(val <= biggetsPageNumber)
 				return true;
 			else 
@@ -3195,8 +3484,10 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 					Line groupingLine = new Line();
 
 					groupingLine.addWords(new Vector<Text>(page.get(i).getWords()));
+					groupingLine.ingestProperties(page.get(i).getProperties());
 
 					groupingLine .addWords(new Vector<Text>(page.get(i+1).getWords()));
+					groupingLine.ingestProperties(page.get(i+1).getProperties());
 					
 					//test for more lines
 					for(int extra = i+2; extra < page.size();) {
@@ -3206,6 +3497,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 							if(allNumbers(page.get(extra).getText()))  {
 								SystemLogger.getInstance().debug("grouping");
 								groupingLine.addWords(new Vector<Text>(page.get(extra).getWords()));
+								groupingLine.ingestProperties(page.get(extra).getProperties());
 								page.remove(extra);
 							} else {
 								break;
@@ -3252,7 +3544,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 		for(int i = 0 ; i < page.size()-2 ; i++){
 			if(page.get(i) != null && page.get(i).size()>0 )	{
 				
-				if(page.get(i).getProperty("crossreference") || page.get(i).getProperty("romanlocator")) {
+				if(page.get(i).getPropertyAsBoolean("crossreference") || page.get(i).getPropertyAsBoolean("romanlocator")) {
 					continue;
 				}
 
@@ -3282,7 +3574,9 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 						Line groupingLine = new Line();
 
 						groupingLine.addWords(new Vector<Text>(page.get(i).getWords()));
+						groupingLine.ingestProperties(page.get(i).getProperties());
 						groupingLine .addWords(new Vector<Text>(page.get(i+1).getWords()));
+						groupingLine.ingestProperties(page.get(i+1).getProperties());
 
 						groupingLine.extractText();
 
@@ -3314,7 +3608,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 			for(int i = 0 ; i < page.size()-2 ; i++){
 				if(page.get(i) != null && page.get(i).size()>0 )	{
 					
-					if(page.get(i).getProperty("crossreference")) {
+					if(page.get(i).getPropertyAsBoolean("crossreference")) {
 						continue;
 					}
 
@@ -3343,7 +3637,9 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 							Line groupingLine = new Line();
 
 							groupingLine.addWords(new Vector<Text>(page.get(i).getWords()));
+							groupingLine.ingestProperties(page.get(i).getProperties());
 							groupingLine .addWords(new Vector<Text>(page.get(i+1).getWords()));
+							groupingLine.ingestProperties(page.get(i+1).getProperties());
 
 							groupingLine.extractText();
 
@@ -3375,7 +3671,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
  			
 			if(page.get(i) != null && page.get(i).size()>0 )	{
 				
-				if(page.get(i).getProperty("crossreference")) {
+				if(page.get(i).getPropertyAsBoolean("crossreference")) {
 					continue;
 				}
 
@@ -3406,8 +3702,10 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 					Line groupingLine = new Line();
 
 					groupingLine.addWords(new Vector<Text>(page.get(i).getWords()));
-					//commented: in springer books these cases are only one line
+					groupingLine.ingestProperties(page.get(i).getProperties());
+					//comment: in springer books these cases are only one line
 					groupingLine .addWords(new Vector<Text>(page.get(i+1).getWords()));
+					groupingLine.ingestProperties(page.get(i+1).getProperties());
 
 					groupingLine.extractText();
 
@@ -3442,6 +3740,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 				int j = 1;
 				while(page.get(i+j).getStartPositionX() > (newLine.getStartPositionX() + 4)) {
 					newLine.addWords(page.get(i+j).getWords());
+					newLine.ingestProperties(page.get(i+j).getProperties());
 					j++;
 				}
 				newLine.extractText();
@@ -3481,6 +3780,10 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 		for(int i = 0 ; i < page.size()-2 ; i++){
  			
 			if(page.get(i) != null && page.get(i).size()>0 )	{
+				
+				if(page.get(i).getPropertyAsBoolean("crossreference")) {
+					continue;
+				}
 
 				//check that the term does not end in a number, and that two terms ahead the term is aligned.
 				//This means that one term ahead is part of the actual term
@@ -3510,6 +3813,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 							Line groupingLine = new Line();
 							for(int z = 0; z < nextLines.size(); z++) {
 								groupingLine.addWords(new Vector<Text>(nextLines.get(z).getWords()));
+								groupingLine.ingestProperties(nextLines.get(z).getProperties());
 							}
 							groupingLine.extractText();
 
@@ -3537,10 +3841,12 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 		
 		//#2.6 Remove lines of continuing index terms "(cont.)"
 		for(int i = 0 ; i < page.size()-1 ; i++){
-			String text = page.get(i).getText();
-			if(text.contains("(" + WordListCheck.getContWord(lang) + ")")) {
-				page.remove(i);
-				i--;
+			for(Text word: page.get(i).getWords()) {
+				if(WordListCheck.isContWord(word.getText())) {
+					page.remove(i);
+					i--;
+					break;
+				}
 			}
 		}
 		
@@ -3595,6 +3901,17 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 			}
 		}
 		
+//		/*TESTING*/
+//		Iterator<Line> it5 = page.iterator();
+//		System.out.println(" before 5: " + page.size());
+//		while(it5.hasNext()) {
+//			Line l = it5.next();
+//			System.out.println("^ " + l.getStartPositionX() + " " + l.getText());
+//		}
+//		System.out.println("IndexExtractor.termDelimiter " + this.termDelimiter);
+//		System.exit(0);
+//		/*TESTING*/
+		
 		//#5 Mark the division between label and page references in each index term
 		for(int i = 0 ; i < page.size(); i++){
 			int div = this.getWordPosOfFirstNumberPageReferece(page.get(i));
@@ -3608,8 +3925,10 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 			if(div != -1) {
 				//remove last divider char before page numbers (like ",")
 				Text lastWordBeforeDivider = page.get(i).getWordAt(div-1);
-				if(IndexExtractor.allDelimiters.contains(lastWordBeforeDivider.getText().substring(lastWordBeforeDivider.getText().length()-1))) {
-					lastWordBeforeDivider.setText(lastWordBeforeDivider.getText().substring(0, lastWordBeforeDivider.getText().length()-1));
+				if(!this.termDelimiter.equals(" ")) {
+					if(this.termDelimiter.equals(lastWordBeforeDivider.getText().substring(lastWordBeforeDivider.getText().length()-1))) {
+						lastWordBeforeDivider.setText(lastWordBeforeDivider.getText().substring(0, lastWordBeforeDivider.getText().length()-1));
+					}
 				}
 				//add term divider
 				Text w = new Text(IndexExtractor.termDivider);
@@ -3682,12 +4001,6 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 					page.addAll(i,temp);
 
 					i+=temp.size()-1;			
-				} else {
-					if (WordListCheck.containsExample(page.get(i).getText().toLowerCase())) {
-						//System.out.println("##############: " + page.get(i).getText());
-						page.remove(i);
-						i--;
-					}
 				}
 			} 
 		}
@@ -3765,6 +4078,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 
 				Vector<Line> temp = new Vector<Line> ();
 				Line root = new Line(groupedLines.get(0));
+				root.ingestProperties(groupedLines.get(0).getProperties());
 				buffer.remove(0);
 
 				byte depth = 1;
@@ -3811,6 +4125,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 					tempLine.addWords(division.getLeft().getWords());
 					tempLine.addWord(new Text("<>"));
 					tempLine.addWords(temp.get(i).getWords());
+					tempLine.ingestProperties(temp.get(i).getProperties());
 					tempLine.setArtificial(temp.get(i).isArtificial());
 					tempLine.extractText();
 					resolved.add(tempLine);
@@ -3845,15 +4160,10 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 		Vector<Line> temp = new Vector<Line>();
 
 		root = new Line ( groupedLines.get(0));
+		root.ingestProperties(groupedLines.get(0).getProperties());
 		buffer.remove(0);
 
 		temp = indexGroupResolverInnerLayersIndexElements(buffer);
-		
-		//SPACIAL CASE: EXAMPLE
-		if (WordListCheck.containsExample(root.getText().toLowerCase())) {
-			//SystemLogger.getInstance().debug("@@@EXAMPLE!!!!!! " + root.getText());
-			return resolved;
-		}
 
 //		/*TESTING*/
 //		System.out.println("***** TEMP");
@@ -3892,6 +4202,7 @@ private void printPageText(List<Page> book, Vector<IndexElement> indexElements )
 			tempLine.addWords(division.getLeft().getWords());
 			tempLine.addWord(new Text("<>"));
 			tempLine.addWords(temp.get(i).getWords());
+			tempLine.ingestProperties(temp.get(i).getProperties());
 			tempLine.setArtificial(temp.get(i).isArtificial());
 			tempLine.extractText();
 			resolved.add(tempLine);

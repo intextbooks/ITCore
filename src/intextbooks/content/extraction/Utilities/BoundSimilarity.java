@@ -209,12 +209,38 @@ public class BoundSimilarity {
 	
 	public static boolean areWordsInLineCentered(Line line, Pair<Float, Float> lineEdges) {
 		if(line.size() > 0) {
-			Float expected = lineEdges.getLeft() + (line.getWordAt(0).getSpaceWidth() * 2) + 15;
-			if(line.getWordAt(0).getStartPositionX() > expected) {
+			float s = line.getWordAt(0).getStartPositionX();
+			float e = line.getWordAt(line.size()-1).getEndPositionX();
+			float middle = (s+e) / 2;
+			float occuppacy = line.getWordAt(line.size()-1).getEndPositionX() - line.getWordAt(0).getStartPositionX();
+			
+			float middelEdges = (lineEdges.getLeft() + lineEdges.getRight())/2;
+			float occupacyEdges = lineEdges.getRight() - lineEdges.getLeft();
+			//words are centered + the line is less that 40% of the line capacity + there is no words in the edges
+			if(Math.abs(middelEdges - middle) < 10 && occuppacy < (occupacyEdges * 0.4)
+					&& Math.abs(line.getWordAt(0).getStartPositionX() - lineEdges.getLeft()) > 15
+					&& Math.abs(line.getWordAt(line.size()-1).getEndPositionX() - lineEdges.getRight()) > 15
+					) {
 				return true;
-			} else {
-				return false;
 			}
+			
+			SystemLogger.getInstance().debug("middle"  + ": " + middle);
+			SystemLogger.getInstance().debug("occuppacy"  + ": " +occuppacy );
+
+			SystemLogger.getInstance().debug("s"  + ": " + s);
+			SystemLogger.getInstance().debug("e"  + ": " + e);
+			SystemLogger.getInstance().debug("middelEdges"  + ": " + middelEdges);
+			SystemLogger.getInstance().debug("occupacyEdges"  + ": " + occupacyEdges);
+			SystemLogger.getInstance().debug("lineEdges S"  + ": " + lineEdges.getLeft());
+			SystemLogger.getInstance().debug("lineEdges E"  + ": " + lineEdges.getRight());
+	
+			//OLD:
+//			Float expected = lineEdges.getLeft() + (line.getWordAt(0).getSpaceWidth() * 2) + 15;
+//			if(line.getWordAt(0).getStartPositionX() > expected) {
+//				return true;
+//			} else {
+//				return false;
+//			}
 		}
 		return false;
 	}
@@ -241,8 +267,8 @@ public class BoundSimilarity {
 				if(l.getWordAt(0).getStartPositionX() < startX) {
 					startX = l.getWordAt(0).getStartPositionX();
 				}
-				if(l.getWordAt(0).getEndPositionX() > endX) {
-					endX = l.getWordAt(0).getEndPositionX();
+				if(l.getWordAt(l.size()-1).getEndPositionX() > endX) {
+					endX = l.getWordAt(l.size()-1).getEndPositionX();
 				}
 			}
 		}
@@ -257,8 +283,8 @@ public class BoundSimilarity {
 				if(l.getWordAt(0).getStartPositionX() < startX) {
 					startX = l.getWordAt(0).getStartPositionX();
 				}
-				if(l.getWordAt(0).getEndPositionX() > endX) {
-					endX = l.getWordAt(0).getEndPositionX();
+				if(l.getWordAt(l.size()-1).getEndPositionX() > endX) {
+					endX = l.getWordAt(l.size()-1).getEndPositionX();
 				}
 			}
 		}

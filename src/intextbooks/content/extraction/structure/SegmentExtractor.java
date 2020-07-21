@@ -3,8 +3,12 @@ package intextbooks.content.extraction.structure;
 import java.io.IOException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Map.Entry;
 import java.util.Stack;
 
 
@@ -27,6 +31,7 @@ import intextbooks.content.extraction.buildingBlocks.structure.TOCResource;
 import intextbooks.content.extraction.format.FormatExtractor;
 import intextbooks.content.models.Book;
 import intextbooks.content.models.formatting.FormattingDictionary;
+import intextbooks.content.models.structure.Segment;
 import intextbooks.ontologie.LanguageEnum;
 
 
@@ -36,6 +41,7 @@ public class SegmentExtractor {
 	private List<SKOSModelSegment> SKOSModelSegments = new ArrayList<SKOSModelSegment>();
 	private final double similarityThreshold = 0.7;
 	private HyphenationResolver hyphenResolver;
+	private ArrayList<SegmentData> segmentsData;
 	
 	public SegmentExtractor(LanguageEnum lang) {
 		try {
@@ -171,7 +177,7 @@ public class SegmentExtractor {
 		int lineOfInterest=-1;		
 		int secondLineOfInterest = -1;
 		for(int j = 0 ; j<page.getLines().size(); j++){
-			SystemLogger.getInstance().debug("************************************************************");
+			SystemLogger.getInstance().debug("************************************************************: " + j);
 			startLineOfInterest = j;
 			String temp = page.getLineAt(j).getText().toLowerCase();
 			SystemLogger.getInstance().debug("temp: " + temp);
@@ -200,10 +206,14 @@ public class SegmentExtractor {
 				}
 				//System.out.println(" l of interest: " + lineOfInterest);
 			} else if (page.getLineAt(j).getFontSize() > bodyFontSize || page.getLineAt(j).isBold() || page.getLineAt(j).isItalic() ) {
+				SystemLogger.getInstance().debug(" 2 checkmultiline j: " + j);
 				Pair<Integer, Double> result = checkMultiLine(page, title, 0, j, bodyFontSize);
-				if(result != null && result.getRight() > similarityThreshold) {
+				if(result != null && result.getRight() > similarityBase ) {
+					SystemLogger.getInstance().debug(" 2 YES similarity>similarityBase");
 					lineOfInterest = j;
+					SystemLogger.getInstance().debug("lineOfInterest: " + lineOfInterest);
 					secondLineOfInterest = result.getLeft();
+					SystemLogger.getInstance().debug("secondLineOfInterest: " + secondLineOfInterest);
 					similarityBase = result.getRight();
 					if(similarityBase == 1) {
 						break;
@@ -218,7 +228,11 @@ public class SegmentExtractor {
 		
 		if(lineOfInterest > 0 && !toEndChapter) {
 			if(WordListCheck.containsChapterTitle(page.getLineAt(lineOfInterest - 1).getText()) && page.getLineAt(lineOfInterest - 1).getFontSize() > bodyFontSize) {
+				if(secondLineOfInterest == -1) {
+					secondLineOfInterest = lineOfInterest;
+				}
 				lineOfInterest--;
+				SystemLogger.getInstance().debug("YES contains chapter title : lineOfInterest: " + lineOfInterest);
 			}
 		}
 		
@@ -232,21 +246,21 @@ public class SegmentExtractor {
 				lineOfInterest = 0;
 			}
 			
-			//System.out.println("~~ case 1");
+			SystemLogger.getInstance().debug("~~ case 1");
 		} else if(toEndChapter) {
 			lineOfInterest = lineOfInterest -1;
 			
-			//System.out.println("~~ case 2");
+			SystemLogger.getInstance().debug("~~ case 2");
 		}else if(lineOfInterest < page.getLines().size()-1 && !toEndChapter){
 
 			if(secondLineOfInterest != -1) {
 				lineOfInterest = secondLineOfInterest;
 			}
 			
-			//System.out.println("secondLineOfInterest: " + secondLineOfInterest);
-			//System.out.println("~~ case 3");
+			SystemLogger.getInstance().debug("secondLineOfInterest: " + secondLineOfInterest);
+			SystemLogger.getInstance().debug("~~ case 3");
 		} else {
-			//System.out.println("~~ case 4");
+			SystemLogger.getInstance().debug("~~ case 4");
 		}
 
 		return Pair.of(originalLineOfInterest,lineOfInterest);
@@ -263,12 +277,11 @@ public class SegmentExtractor {
 	
 	private ChapterMetaData extractChapterMetaData(StructureBuilder listToModel, List<ResourceUnit> book, List<TOC> toc, int counter,FormattingDictionary styleLibrary){		
 		
-		
 		//SystemLogger.getInstance().log("++++++++ > extractChapterMetaData: " + counter); 
 		
 		NodeDataContainer x = listToModel.getEntryAt(counter);
 		
-//		if(x.getTitle().equals("appendix 1: shortcut formulas for calculating variance and standard deviation")) {
+//		if(x.getTitle().equals("1 overview and descriptive statistics")) {
 //			SystemLogger.getInstance().setDebug(true);
 //		} else {
 //			SystemLogger.getInstance().setDebug(false);
@@ -294,9 +307,14 @@ public class SegmentExtractor {
 
 			//inside the page, the line number where the title of the chapter is
 			SystemLogger.getInstance().debug("++++++++ > LINE START: looking: " +  buff); 
-			Pair<Integer, Integer> titleLineResult = titleLine(findPageWithPageNumber(book, pageStart), buff,false, styleLibrary.getBodyFontSize());
+			ResourceUnit startPage = findPageWithPageNumber(book, pageStart);
+			if(startPage == null) {
+				return returnNoContentChapterMetadata(pageStart, buff);
+			}
+			Pair<Integer, Integer> titleLineResult = titleLine(startPage, buff,false, styleLibrary.getBodyFontSize());
 			int lineStart = titleLineResult.getRight();
 			int titleLineStart = titleLineResult.getLeft();
+			SystemLogger.getInstance().debug("++++++++ > TITLE LINE START: " +  titleLineStart); 
 			SystemLogger.getInstance().debug("++++++++ > LINE START: " +  lineStart); 
 
 			double topLeftCorner[] =  getLeftTopCoords(book.get(pageStartIndex),lineStart);
@@ -308,7 +326,7 @@ public class SegmentExtractor {
 			
 			SystemLogger.getInstance().debug("listToModel.getEntryAt(counter).getPageNumberEnd(): " + listToModel.getEntryAt(counter).getPageNumberEnd());
 			int pageEndIndex =  findPageIndexWithPageNumber(book,listToModel.getEntryAt(counter).getPageNumberEnd());
-			SystemLogger.getInstance().debug("pageEndIndex" + pageEndIndex);
+			SystemLogger.getInstance().debug("pageEndIndex:"+ "" + pageEndIndex);
 			
 			//it means the last chapter of the TOC has subchapters, so there are elements in TOC left to process
 			if( buff == null) {
@@ -335,7 +353,7 @@ public class SegmentExtractor {
 			}
  
 			SystemLogger.getInstance().debug("pageEndIndex: " + pageEndIndex);
-			SystemLogger.getInstance().debug("findPageUnitWithIndexNumber(book, pageEndIndex): " + findPageUnitWithIndexNumber(book, pageEndIndex));
+			SystemLogger.getInstance().debug("findPageUnitWithIndexNumber(book, pageEndIndex): " + findPageUnitWithIndexNumber(book, pageEndIndex).getPageIndex());
 			
 //			/*TESTING*/
 //			for(Line r: findPageUnitWithIndexNumber(book, pageEndIndex).getLines()) {
@@ -351,7 +369,15 @@ public class SegmentExtractor {
 //			/*TESTING*/			
 			
 			SystemLogger.getInstance().debug("++++++++ > LINE END: looking: " +  buff); 
-			titleLineResult = titleLine(findPageUnitWithIndexNumber(book, pageEndIndex), buff,true, styleLibrary.getBodyFontSize());
+			ResourceUnit endPage = findPageUnitWithIndexNumber(book, pageEndIndex);
+			SystemLogger.getInstance().debug("pageEndIndex: " + endPage.getPageIndex());
+			
+			if(Objects.isNull(endPage)) {
+				return returnNoContentChapterMetadata(pageStart, buff);
+			}
+			
+			/*TESTING*/
+			titleLineResult = titleLine(endPage, buff,true, styleLibrary.getBodyFontSize());
 			int lineEnd = titleLineResult.getRight();
 			SystemLogger.getInstance().debug("++++++++ > RESULT LINE END:: " +  lineEnd); 
 			if(lineEnd == -1) {
@@ -390,6 +416,7 @@ public class SegmentExtractor {
 			}
 			
 			/*TESTING*/
+			SystemLogger.getInstance().setDebug(true);
 			SystemLogger.getInstance().debug("------ Summary:");
 			SystemLogger.getInstance().debug("Chapter title: " + buff);
 			SystemLogger.getInstance().debug("page start: " + pageStart);
@@ -397,6 +424,7 @@ public class SegmentExtractor {
 			SystemLogger.getInstance().debug("page end: " + pageEnd);
 			SystemLogger.getInstance().debug("page end SEARCH: " + listToModel.getEntryAt(counter).getPageNumberEnd());
 			SystemLogger.getInstance().debug("page endIndex: " + pageEndIndex);
+			SystemLogger.getInstance().debug("LINE TITLE Start index: " + titleLineStart);
 			SystemLogger.getInstance().debug("LINE Start index: " + lineStart);
 			SystemLogger.getInstance().debug("LINE Start: " + book.get(pageStartIndex).getLineAt(lineStart).getText());
 			SystemLogger.getInstance().debug("LINE End index: " + lineEnd);
@@ -404,10 +432,7 @@ public class SegmentExtractor {
 			if(lineEnd -1 > 0 ) {
 				SystemLogger.getInstance().debug("LINE End before: " + book.get(pageEndIndex).getLineAt(lineEnd -1).getText());
 			}
-			/*TESTING*/
-			
-			/*if(buff.equals("19.3 neural networks in non-parametric regression analysis"))
-				System.exit(0);*/
+			SystemLogger.getInstance().setDebug(false);
 			/*TESTING*/
 			
 			return new ChapterMetaData(pageStartIndex, pageStart, lineStart,pageEndIndex, pageEnd, lineEnd,
@@ -426,7 +451,7 @@ public class SegmentExtractor {
 			int lineStart = titleLineResult.getRight();
 			int titleLineStart = titleLineResult.getLeft();
 
-			double topLeftCorner[] =  getLeftTopCoords(book.get(pageStartIndex-1),lineStart);
+			double topLeftCorner[] =  getLeftTopCoords(book.get(pageStartIndex),lineStart);
 
 			int pageEnd = book.get(book.size()-1).getPageNumber();
 
@@ -456,6 +481,12 @@ public class SegmentExtractor {
 					buff,true, titleLineStart);
 		}
 		return null;
+	}
+	
+	public ChapterMetaData returnNoContentChapterMetadata(int pageStart, String sectionTitle) {
+		ChapterMetaData metadata = new ChapterMetaData(-1, pageStart, -1,-1, -1, -1,-1, -1, -1, -1,sectionTitle,false, -1);
+		metadata.setNonContent(true);
+		return metadata;
 	}
 
 /**
@@ -615,7 +646,8 @@ public class SegmentExtractor {
 			this.SKOSModelSegments.add(new SKOSModelSegment(chapterID, false, i));
 			segData.setChapterID(chapterID);
 		}
-		//System.exit(0);
+		
+		this.segmentsData = segmentsData;
 		return segmentsData;
 	}
 	
@@ -706,56 +738,150 @@ public class SegmentExtractor {
 	 * @return
 	 * @throws IOException
 	 */
-	public String extractChapterLines(List<Page> book, int startPageIndex, int lineStart, int endPageIndex, int lineEnd, String pageTitle, int startPageNumber, boolean checkForCoopyright) {
+	public Pair<String,Map<Integer, String>> extractChapterLines(List<Page> book, int startPageIndex, int lineStart, int endPageIndex, int lineEnd, String pageTitle, int startPageNumber, boolean checkForCoopyright, int bodyFontSize, Map<String, String> metadata) {
 
-		//StringBuilder paragraph = new StringBuilder();
+		Map<Integer, String> contentByPage = new HashMap<Integer, String>();
+		Map<Integer, List<Line>> linesByPage = new HashMap<Integer, List<Line>>();
+		List<Line> linesPage = new ArrayList<Line>();
 		List<Line> lines = new ArrayList<Line>();
 		List<Integer> pageBreaks = new ArrayList<Integer>();	
-	
 		int lineIndex = 0;
+		
+		List<Line> linesPageSubsection = new ArrayList<Line>();
+		List<Line> linesSubsection = new ArrayList<Line>();
+		List<Integer> pageBreaksSubsection = new ArrayList<Integer>();	
+		int lineIndexSubsection = 0;
+		boolean subsection = false;
+		
 		for(int i = startPageIndex; i <= endPageIndex ; i++ ){
 			if (book.get(i) == null) {
 				continue;
 			}
+			linesPage = new ArrayList<Line>();
+			linesPageSubsection = new ArrayList<Line>();
 			
-			if(i == (startPageIndex + 1) && checkForCoopyright) {
-				int before = lines.size();
-				ContentExtractor.removeCopyRightLines(lines, startPageNumber);
-				int after = lines.size();
-				lineIndex -= (before - after);
-				
-			}
-
+			//set beginningLine and endingLine
 			int beginningLine = 0;
 			int endingLine = book.get(i).size()-1;
+			
+			//add page breaks
 			if(lineIndex != 0) {
 				pageBreaks.add(lineIndex);
+				if(subsection) {
+					pageBreaksSubsection.add(lineIndexSubsection);
+				}
 			}
 
+			//set right beginningLine
 			if(i == startPageIndex) {
 				beginningLine = lineStart;
 			}
-				
+			
+			//set right endingLine
 			if(i ==endPageIndex){
 				if(endingLine>lineEnd)
 					endingLine = lineEnd;
 			}
 
-			if(book.get(i)!=null && book.get(i).size()>0)
+			//add the lines of the current page
+			if(book.get(i)!=null && book.get(i).size()>0) {
 				for(int j = beginningLine; j<=endingLine; j++) {
-					lines.add(book.get(i).getLineAt(j));
-					lineIndex++;
-				}			
+					Line line = book.get(i).getLineAt(j);
+					
+					//check if subsection in section
+					if(line.getFontSize() > bodyFontSize && (WordListCheck.isExerciseSectionFlexible(line.getText().toLowerCase()) 
+							|| WordListCheck.isBibliographySection(line.getText().toLowerCase()))) {
+						subsection = true;
+//						System.out.println("************************");
+//						System.out.println("page: " + i);
+//						System.out.println("line: " + line.getText());
+						
+						//if there was previously a subsection -> process columns
+						if(linesSubsection.size() > 0) {
+							//subsection level
+							ColumnExtractor columnExtractor = new ColumnExtractor(linesSubsection);
+							boolean withColumns = columnExtractor.identifyColumns();
+							if(withColumns) {
+								linesSubsection = columnExtractor.getLines(pageBreaksSubsection);
+								lineIndex+= linesSubsection.size();
+								lines.addAll(linesSubsection);
+							} 
+							//page level
+							ColumnExtractor tmpColumnExtractor = new ColumnExtractor(linesPageSubsection);
+							boolean tmpWithColumns = tmpColumnExtractor.identifyColumns();
+							if(tmpWithColumns) {
+								linesPageSubsection = tmpColumnExtractor.getLines(new ArrayList<Integer>());
+								linesPage.addAll(linesPageSubsection);
+							}
+							linesPageSubsection = new ArrayList<Line>();
+							linesSubsection = new ArrayList<Line>();
+							pageBreaksSubsection = new ArrayList<Integer>();	
+							lineIndexSubsection = 0;
+						}
+					}
+					
+					//add lines to lists
+					if(subsection) {
+						linesSubsection.add(line);
+						linesPageSubsection.add(line);
+						lineIndexSubsection++;
+					} else {
+						lines.add(line);
+						linesPage.add(line);
+						lineIndex++;
+					}
+				}	
+			}
+			
+			//remove copyright lines for first page
+			if(i == startPageIndex && checkForCoopyright) {
+				int before = lines.size();
+				ContentExtractor.removeCopyRightLines(lines, startPageNumber, metadata);
+				ContentExtractor.removeCopyRightLines(linesPage, startPageNumber, metadata);
+				int after = lines.size();
+				lineIndex -= (before - after);
+			}
+			
+			//store the lines for the process page
+			if(subsection) {
+				ColumnExtractor tmpColumnExtractor = new ColumnExtractor(linesPageSubsection);
+				boolean tmpWithColumns = tmpColumnExtractor.identifyColumns();
+				if(tmpWithColumns) {
+					linesPageSubsection = tmpColumnExtractor.getLines(new ArrayList<Integer>());
+					linesPage.addAll(linesPageSubsection);
+				}
+			}
+			linesByPage.put(i, linesPage);
 		}
 		
-		if(WordListCheck.isExerciseSection(pageTitle) || WordListCheck.isAppendixSection(pageTitle) || WordListCheck.containsIndex(pageTitle)) {
-			//SystemLogger.getInstance().setDebug(true);
+		//last subsection (page level)
+		if(subsection) {
+			ColumnExtractor columnExtractor = new ColumnExtractor(linesSubsection);
+			boolean withColumns = columnExtractor.identifyColumns();
+			if(withColumns) {
+				linesSubsection = columnExtractor.getLines(pageBreaksSubsection);
+				lines.addAll(linesSubsection);
+			} 
+		}
+		
+		if(WordListCheck.isExerciseSection(pageTitle) || WordListCheck.isAppendixSection(pageTitle) 
+				|| WordListCheck.containsIndex(pageTitle) || WordListCheck.isBibliographySection(pageTitle)) {
+			//for all the segment
 			ColumnExtractor columnExtractor = new ColumnExtractor(lines);
 			boolean withColumns = columnExtractor.identifyColumns();
 			if(withColumns) {
 				lines = columnExtractor.getLines(pageBreaks);
 			} 
-			SystemLogger.getInstance().setDebug(false);
+			
+			//for each page in the segment
+			for(Entry<Integer, List<Line>> entry: linesByPage.entrySet()) {
+				
+				ColumnExtractor tmpColumnExtractor = new ColumnExtractor(entry.getValue());
+				boolean tmpWithColumns = tmpColumnExtractor.identifyColumns();
+				if(tmpWithColumns) {
+					entry.setValue(columnExtractor.getLines(new ArrayList<Integer>()));
+				} 
+			}
 		}
 		
 		//erase empty lines
@@ -769,8 +895,17 @@ public class SegmentExtractor {
 		
 		//dehyphenateText
 		String text = hyphenResolver.dehyphenateText(lines);
-
-		return text;
+		//for each page in the segment
+		for(Entry<Integer, List<Line>> entry: linesByPage.entrySet()) {
+			String content =  hyphenResolver.dehyphenateText(entry.getValue());
+			contentByPage.put(entry.getKey(), content);
+		}
+		
+		return Pair.of(text, contentByPage);
+	}
+	
+	public void findSegmentsOnPage(int pageIndex, ArrayList<Integer> found){
+		
 	}
 	
 	

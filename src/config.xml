@@ -13,32 +13,34 @@
 		<linkingFolder>data/repository/</linkingFolder>
 		<pythonScriptPath>data/scripts/noun-extractor.py</pythonScriptPath>
 		<tdbDirectory>data/tdb_directory</tdbDirectory>
+	<!-- local JEP library -->
+	<jepLibraryPath>/home/alpiz001/.local/lib/python3.8/site-packages/jep/libjep.so</jepLibraryPath>
 	<!-- MISC -->
 		<lineSeparator>#####</lineSeparator>
+		<!-- ff debug logging should be omitted -->
 		<silentLogging>true</silentLogging>
 		<ontologyNS>http://intextbooks.science.uu.nl/models/ontologies/intextbooks.rdf#</ontologyNS>
 	<!-- DATABASE -->
 		<database>jdbc:mysql://localhost:3306/intextbooks_db?characterEncoding=utf8&amp;useSSL=false</database>
-		<dbPasswd>sa!n4vvD!qJT3X</dbPasswd>
-		<dbUser>intextbooks</dbUser>
-		<mailPasswd>sa!n4vv!qJT3X</mailPasswd>
+		<dbPasswd></dbPasswd>
+		<dbUser></dbUser>
+		<mailPasswd></mailPasswd>
 	<!-- KB Enrichment -->
 		<numberOfJumps>3</numberOfJumps>
 		<similarityScoreThreshold>0.5</similarityScoreThreshold>
 	<!-- Linking -->
 		<!-- Parameters -->
-			<luceneVersion>LUCENE_4_10_2</luceneVersion>
-			<assumedMaxDocumentCount>10000</assumedMaxDocumentCount>
-			<logLinkingProcess>true</logLinkingProcess>
-			<VsmCollectionSimilarityMaximumListedMatchingDocuments>10</VsmCollectionSimilarityMaximumListedMatchingDocuments>
-			<nameDividorSymbol>#</nameDividorSymbol>
-			<markAsIntroductionString>[INTRODUCTION]</markAsIntroductionString>
-			<fileNameHashingReadablePartLength>50</fileNameHashingReadablePartLength>
-			<alsoCreateHumanReadableVersionOfFiles>false</alsoCreateHumanReadableVersionOfFiles>
-			<collectionSimilaritySanityTestNumberOfSvdDimensions>10</collectionSimilaritySanityTestNumberOfSvdDimensions>
-			<basicIndexingTestLanguage>GERMAN</basicIndexingTestLanguage>
-
-			<!-- Query weights -->
+	<luceneVersion>LUCENE_4_10_2</luceneVersion>
+	<assumedMaxDocumentCount>10000</assumedMaxDocumentCount>
+	<logLinkingProcess>true</logLinkingProcess>
+	<VsmCollectionSimilarityMaximumListedMatchingDocuments>10</VsmCollectionSimilarityMaximumListedMatchingDocuments>
+	<nameDividorSymbol>#</nameDividorSymbol>
+	<markAsIntroductionString>[INTRODUCTION]</markAsIntroductionString>
+	<fileNameHashingReadablePartLength>50</fileNameHashingReadablePartLength>
+	<alsoCreateHumanReadableVersionOfFiles>false</alsoCreateHumanReadableVersionOfFiles>
+	<collectionSimilaritySanityTestNumberOfSvdDimensions>10</collectionSimilaritySanityTestNumberOfSvdDimensions>
+	<basicIndexingTestLanguage>GERMAN</basicIndexingTestLanguage>
+	  <!-- Query weights -->
       <findAnyBodyWeight>1.0</findAnyBodyWeight>
       <findAnyTitleWeight>11.0</findAnyTitleWeight>
       <findAllBodyWeight>1.8</findAllBodyWeight>

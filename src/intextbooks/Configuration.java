@@ -93,6 +93,8 @@ public class Configuration {
 		
 		this.tdbDirectory = cLoader.getTdbDirectory();
 		
+		this.jepLibraryPath = cLoader.getJepLibraryPath();
+		
 		this.englishTexPattern = cLoader.getEnglishTexPattern();
 		this.germanTexPattern = cLoader.getGermanTexPattern();
 		this.frenchTexPattern = cLoader.getFrenchTexPattern();
@@ -170,6 +172,7 @@ public class Configuration {
 	private String indexVsGlossary;
 	private String glossaryIndexOverlap;
 	private String tdbDirectory;
+	private String jepLibraryPath;
 	
 	private double findAllBodyWeight;
 	private double findAllTitleWeight;
@@ -529,6 +532,10 @@ public class Configuration {
 	
 	public String getTdbDirectory() {
 		return this.tdbDirectory;
+	}
+	
+	public String getJepLibraryPath() {
+		return this.jepLibraryPath;
 	}
 	
 	public String getEnglishTexPattern() {

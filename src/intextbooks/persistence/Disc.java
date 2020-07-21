@@ -154,6 +154,7 @@ public class Disc {
 			TransformerFactory transformerFactory = TransformerFactory.newInstance();
 			Transformer transformer = transformerFactory.newTransformer();
 			transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+			transformer.setOutputProperty(OutputKeys.VERSION, "1.1");
 			transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
 			DOMSource domSource = new DOMSource(document);
 			File file = new File (Configuration.getInstance().getModelFolder()+parentBook+File.separator, "teiModel.xml");
@@ -167,6 +168,12 @@ public class Disc {
 			e.printStackTrace();
 			SystemLogger.getInstance().log("Error persisting TEI model: " + e.getMessage());
 		}
+	}
+	
+	public void grantExecutionRights(String filePath) {
+		File file = new File (filePath);
+		file.setReadable(true, false);
+		file.setExecutable(true, false);	
 	}
 
 	private Document pageMapAsXML(String parentBook, HashMap<String, Page> pageMap) {
@@ -611,13 +618,6 @@ public class Disc {
 	}
 
 	public Segment loadStructure(String bookID) {
-//		try {
-//			TimeUnit.SECONDS.sleep(60);
-//			System.out.println("waiting 1 minute");
-//		} catch (InterruptedException e1) {
-//			// TODO Auto-generated catch block
-//			e1.printStackTrace();
-//		}
 		Segment hierarchy = new Segment(0, "book", "book", -1,0);
 		String formatFilePath = Configuration.getInstance().getModelFolder()+bookID;
 
@@ -636,6 +636,38 @@ public class Disc {
 				return null;
 			else
 				hierarchy = loadSegments(bookNode);
+
+
+		} catch (ParserConfigurationException | SAXException | IOException e) {
+			e.printStackTrace();SystemLogger.getInstance().log(e.toString());
+		}
+
+		return hierarchy;
+	}
+	
+	public Segment loadTEIStructure(String bookID) {
+		Segment hierarchy = new Segment(0, "book", "book", -1,0);
+		String formatFilePath = Configuration.getInstance().getModelFolder()+bookID;
+
+		File fXmlFile = new File(formatFilePath+File.separator+"teiModel.xml");
+		DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+		dbFactory.setNamespaceAware(true);
+		DocumentBuilder dBuilder;
+		try {
+			dBuilder = dbFactory.newDocumentBuilder();
+			Document doc = dBuilder.parse(fXmlFile);
+			doc.getDocumentElement().normalize();
+
+			Element bookNode = (Element) doc.getElementsByTagName("front").item(0);
+
+			if(bookNode == null)
+				return null;
+			else {
+				bookNode = (Element) bookNode.getElementsByTagName("div").item(0);
+				bookNode = (Element) bookNode.getElementsByTagName("list").item(0);
+				loadTEISegments(bookNode, hierarchy);
+			}
+				
 
 
 		} catch (ParserConfigurationException | SAXException | IOException e) {
@@ -731,6 +763,36 @@ public class Disc {
 
 		return newSegment;
 	}
+	
+	private void loadTEISegments(Element node, Segment parent) {
+
+		NodeList list = node.getChildNodes();
+		Segment newSegmentC = null;
+		for(int i = 0; i < list.getLength(); i++) {
+			if(list.item(i).getNodeName().equals("item")) {
+				Element current = (Element) list.item(i);
+				String allText = current.getTextContent().trim();
+				Element ref = (Element) current.getElementsByTagName("ref").item(0);
+				String target = ref.getAttribute("target");
+				if(target == null || target.length() == 0)
+					continue;
+				int id =Integer.valueOf(target.replace("seg_", ""));
+				String pageString = ref.getTextContent().trim();
+				int pageStart = Integer.valueOf(pageString);
+				allText = allText.substring(0, allText.length() - pageString.length());
+				
+				newSegmentC = new Segment(id,allText,"chapter",parent.getId(),parent.getLevel()+1,pageStart,0,null,pageStart,allText);
+				Segment newSegmentP = new Segment(id+1,allText,"paragraph",newSegmentC.getId(),newSegmentC.getLevel()+1,pageStart,0,null,pageStart,allText);
+				newSegmentC.addChild(newSegmentP);
+				parent.addChild(newSegmentC);
+				
+				//System.out.println("# title: " + allText + " #page: " + pageString + " #seg: " + id);
+			} else if (list.item(i).getNodeName().equals("list")) {
+				Element current = (Element) list.item(i);
+				loadTEISegments(current,newSegmentC);
+			}
+		}
+	}
 
 
 	private  String getTextContentOfNode(Node node) {
@@ -745,10 +807,14 @@ public class Disc {
 	}
 
 	public void storeSegment(String bookID, int index, String content){
+		storeSegment(bookID, String.valueOf(index), content);
+	}
+	
+	public void storeSegment(String bookID, String name, String content){
 		String filePath = Configuration.getInstance().getExtractedSegmentsFolderTXT()+bookID;
 
 		File dataDir = checkFolderStructure(filePath);
-		File paragraphFile = (new File(dataDir,String.valueOf(index)+".txt"));
+		File paragraphFile = (new File(dataDir,name+".txt"));
 		Writer out;
 		try {
 			out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(paragraphFile), "UTF-8"));
@@ -757,7 +823,6 @@ public class Disc {
 		} catch (IOException e) {
 			e.printStackTrace();SystemLogger.getInstance().log(e.toString());
 		}
-
 	}
 
 	public void storeExtractonTempInfo(String bookID, String fileName, String content){

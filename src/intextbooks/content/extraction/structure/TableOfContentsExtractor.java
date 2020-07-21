@@ -52,7 +52,7 @@ public class TableOfContentsExtractor {
 	 * @throws TOCNotFoundException 
 	 */
 	public static Pair<List<Integer>, ArrayList<TOC>> extractToc(int tableOfContentsStartPageIndx, Vector<Page> pages, Line TOCTitleLine, float textBodyFontSize, LanguageEnum lang) throws TOCNotFoundException{
-
+		SystemLogger.getInstance().setDebug(true);
 		ArrayList<Line> toc = new ArrayList<Line>();
 		ArrayList<Integer> tocPages = new ArrayList<Integer>();
 
@@ -81,11 +81,11 @@ public class TableOfContentsExtractor {
 //					System.exit(0);
 //					System.out.println("---- adding toc lines: page: " + i);
 //					/*TESTING*/
-				//SystemLogger.getInstance().setDebug(true);
 				toc.addAll(getTocLines(page));
 				tocPages.add(i);
 			}
-		}		
+		}	
+		
 		//Check if empty TOC: TOC without page numbers
 		if(toc.size() == 0) {
 			throw new TOCNotFoundException("Book have a Table of Content without page numbers");
@@ -106,12 +106,19 @@ public class TableOfContentsExtractor {
 ////			l.mostFrequentStyleFeatures();
 ////			System.out.println("#" + i++ + ": " + l.getText() + " SA: " + l.getFCKeySum());
 //			for(Text w: l.getWords() ) {
-//				System.out.println("\t" + w.getText() + ": " + w.getFontSize());
+//				//System.out.println("\t" + w.getText() + ": " + w.getFontSize());
 //			}
 //		}
 //			
 //		System.exit(0);
 //		/*TESTING*/
+		
+//		/*check columns*/
+//		ColumnExtractor columnExtractor = new ColumnExtractor(toc);
+//		boolean withColumns = columnExtractor.identifyColumns();
+//		if(withColumns) {
+//			toc = (ArrayList<Line>) columnExtractor.getLines(new ArrayList<Integer>() );
+//		} 
 
 		tocLineConcat(toc, lang);
 		
@@ -123,31 +130,51 @@ public class TableOfContentsExtractor {
 //			Line n = it.next();
 //			SystemLogger.getInstance().debug("#" + i++ + ": " + n.getText() + " X: " + n.getStartPositionX());
 //		}
-//		//System.exit(0);
+//		System.exit(0);
 //		/*TESTING*/
 
 		return Pair.of(tocPages, convertToTOC(toc));
 	}
 	
-	public static boolean checkTOCTitleLine(Page page, Line TOCTitleLine) {
+	public static boolean checkTOCTitleLine(Page page, Line TOCTitleLine, float bodyFontSize) {
 		int countEqual = 0;
+		Pair<Float, Float> edges = BoundSimilarity.learnLineEdges(page.getLines(), (int)bodyFontSize);
+		
 		for(int i = 0; i < page.size(); i++){
 			if(page.getLineAt(i).size() == 0)
 				continue;
 			if(!page.getLineAt(i).equals(TOCTitleLine) && page.getLineAt(i).getWordAt(0).getFontSize() == TOCTitleLine.getWordAt(0).getFontSize() &&  page.getLineAt(i).getWordAt(0).getFontName().equals(TOCTitleLine.getWordAt(0).getFontName())
 					&& (BoundSimilarity.isInBound( page.getLineAt(i).getStartPositionX(), TOCTitleLine.getStartPositionX(), page.getLineAt(i).getWordAt(0).getFontSize(), TOCTitleLine.getWordAt(0).getFontSize(), 0.9f )
 					|| BoundSimilarity.isInBound( page.getLineAt(i).getEndPositionX(), TOCTitleLine.getEndPositionX(), page.getLineAt(i).getWordAt(0).getFontSize(), TOCTitleLine.getWordAt(0).getFontSize(), 0.9f )
+					||BoundSimilarity.areWordsInLineCentered(page.getLineAt(i), edges)
 					) && getRomanNumberAtTheEnd(page.getLineAt(i).getLastWordText().toUpperCase()) == null && getTheNumberAtTheEnd(page.getLineAt(i).getLastWordText().toUpperCase()) == null) {
 				countEqual++;
 			}
+			
+//			/*TESTING*/
+//			SystemLogger.getInstance().debug(page.getLineAt(i).getText());
+//			SystemLogger.getInstance().debug("page.getLineAt(i).getWordAt(0).getFontSize()" + ": " + page.getLineAt(i).getWordAt(0).getFontSize());
+//			SystemLogger.getInstance().debug("TOCTitleLine.getWordAt(0).getFontSize()" + ": " + TOCTitleLine.getWordAt(0).getFontSize());
+//			SystemLogger.getInstance().debug("page.getLineAt(i).getWordAt(0).getFontName()" + ": " +page.getLineAt(i).getWordAt(0).getFontName() );
+//			SystemLogger.getInstance().debug("TOCTitleLine.getWordAt(0).getFontName()" + ": " + TOCTitleLine.getWordAt(0).getFontName());
+//			SystemLogger.getInstance().debug("centered" + ": " + BoundSimilarity.areWordsInLineCentered(page.getLineAt(i), edges));
+//			SystemLogger.getInstance().debug("page.getLineAt(i).getPositionY()" + ": " + page.getLineAt(i).getPositionY());
+//			SystemLogger.getInstance().debug("TOCTitleLine.getPositionY()" + ": " + TOCTitleLine.getPositionY());
+//			SystemLogger.getInstance().debug("bound 0.1" + ": " + BoundSimilarity.isInYBound( page.getLineAt(i), TOCTitleLine, 0.1));
+//			SystemLogger.getInstance().debug("bound 0.2" + ": " + BoundSimilarity.isInYBound( page.getLineAt(i), TOCTitleLine, 0.2));
+//			SystemLogger.getInstance().debug("bound 0.3" + ": " + BoundSimilarity.isInYBound( page.getLineAt(i), TOCTitleLine, 0.3));
+//			SystemLogger.getInstance().debug("bound 0.4" + ": " + BoundSimilarity.isInYBound( page.getLineAt(i), TOCTitleLine, 0.4));
+//			SystemLogger.getInstance().debug("bound 0.5" + ": " + BoundSimilarity.isInYBound( page.getLineAt(i), TOCTitleLine, 0.5));
+//			SystemLogger.getInstance().debug("bound 0.6" + ": " + BoundSimilarity.isInYBound( page.getLineAt(i), TOCTitleLine, 0.6));
+//			SystemLogger.getInstance().debug("bound 0.7" + ": " + BoundSimilarity.isInYBound( page.getLineAt(i), TOCTitleLine, 0.7));
+//			SystemLogger.getInstance().debug("bound 0.8" + ": " + BoundSimilarity.isInYBound( page.getLineAt(i), TOCTitleLine, 0.8));
+//			SystemLogger.getInstance().debug("bound 0.9" + ": " + BoundSimilarity.isInYBound( page.getLineAt(i), TOCTitleLine, 0.9));
+//			SystemLogger.getInstance().debug("bound 1" + ": " + BoundSimilarity.isInYBound( page.getLineAt(i), TOCTitleLine, 1));
+//			/*TESTING*/
 		}
 		
-		/*if(countEqual == 1) {
-			return true;
-		} else if(countEqual > 1 && page.size() > 1) {
-			return false;
-		}*/
-		//System.out.println("^^ Checking tocLine: " + countEqual);
+
+		
 		if(countEqual >= 1) {
 			return true;
 		} else {
@@ -174,8 +201,9 @@ public class TableOfContentsExtractor {
 		 * 3) Lines with numbers at the end should be more than 20% of all lines
 		 */
 		
+		SystemLogger.getInstance().debug("Checking TOC  page: " + page.getPageIndex());
 		//CHECK if TOC structure belongs to other section like List of Figures...
-		if(TOCTitleLine != null && checkTOCTitleLine(page, TOCTitleLine)) {
+		if(TOCTitleLine != null && checkTOCTitleLine(page, TOCTitleLine, textBodyFontSize)) {
 			return false;
 		}
 		
@@ -233,6 +261,7 @@ public class TableOfContentsExtractor {
 		//not last line because of possible page number
 		int sameNumber = 0;
 		int biggestSameNumber = 0;
+		boolean pageNumber = false;
 		for(int i = 0; i < range; i++){
 			
 			SystemLogger.getInstance().debug("line ------: " + page.getLineAt(i).getText());
@@ -250,6 +279,7 @@ public class TableOfContentsExtractor {
 			}
 			
 			if(lastWordText != null) {
+				pageNumber = true;
 				Integer currentPageNumber = Integer.parseInt(lastWordText);
 				if(sequencePageNumber == null) {
 					sequencePageNumber = currentPageNumber;
@@ -286,6 +316,8 @@ public class TableOfContentsExtractor {
 			
 			if(lastWordText == null && lastWordRoman == null){
 				nullCount++;
+			} else if (lastWordRoman != null && pageNumber) {
+				nullCount++;
 			}
 			else{
 				SystemLogger.getInstance().debug("# Ok Line: "+ page.getLineAt(i).getText());
@@ -296,6 +328,7 @@ public class TableOfContentsExtractor {
 		/*TESTING*/
 		SystemLogger.getInstance().debug("null: "+ nullCount);
 		SystemLogger.getInstance().debug("numberCount: "+ numberCount);
+		SystemLogger.getInstance().debug("biggestSameNumber: "+ biggestSameNumber);
 		/*TESTING*/
 		
 		if(sequencePageNumber == null) {
@@ -321,16 +354,20 @@ public class TableOfContentsExtractor {
 //				return true;
 //			}	
 			if(biggestSameNumber >= 4 && numberCount <= 7) {
+				SystemLogger.getInstance().debug("false 1");
 				return false;
 			}
 			
 			//More relax requirements:
-			if(numberCount > (numberCount + nullCount) * 0.2){
+			if(numberCount > (numberCount + nullCount) * 0.25){
+				SystemLogger.getInstance().debug("true 2");
 				return true;
 			} else {
+				SystemLogger.getInstance().debug("false 3");
 				return false;
 			}
 		} else {
+			SystemLogger.getInstance().debug("true 4");
 			return true;	
 		}	
 	}
@@ -417,12 +454,12 @@ public class TableOfContentsExtractor {
 			
 			SystemLogger.getInstance().debug("TOC line before cleaning: " + page.getLineAt(i).getText());
 			tocInvalidCharCleaning(page.getLineAt(i));
-			
-
 			SystemLogger.getInstance().debug("TOC line AFTER cleaning: " + page.getLineAt(i).getText()+  " " + page.getLineAt(i).getFontSize());
+			
 			for(Text t:  page.getLineAt(i).getWords()) {
 				SystemLogger.getInstance().debug("\t" + t.getText() + " " + t.getFontSize());
 			}
+			
 			if(page.getLineAt(i).size() > 0) {
 				dashFillFix(page.getLineAt(i));
 			} else {
@@ -432,6 +469,8 @@ public class TableOfContentsExtractor {
 			SystemLogger.getInstance().debug("TOC line AFTER dashFIll: " + page.getLineAt(i).getText());
 			tableOfContents.add(page.getLineAt(i));			
 		}	
+		
+		
 		
 		return tableOfContents;
 	}
@@ -504,6 +543,9 @@ public class TableOfContentsExtractor {
 		
 		//remove special bad recognized entries
 		TOCCleanUp(resultTOC);
+		
+		//remove final puctuation at the end of titles
+		TOCPunctuationCleanUp(resultTOC);
 
 		
 //		/*TESTING*/
@@ -528,9 +570,22 @@ public class TableOfContentsExtractor {
 		while(it.hasNext()) {
 			TOC entry = it.next();
 			String text = entry.getTitleText();
+			System.out.println(text);
 			if(text.length() <= 3 && entry.getPageNumber() == 0 && !text.toUpperCase().matches(regexRomanNumber) && !text.toLowerCase().contains("part") && !text.toLowerCase().contains("section") ) {
 				SystemLogger.getInstance().debug("CANDIDATE: " + text);
 				it.remove();
+			}
+		}
+	}
+	
+	public static void TOCPunctuationCleanUp(ArrayList<TOC> resultTOC) {
+		Iterator<TOC> it = resultTOC.iterator();
+		while(it.hasNext()) {
+			TOC entry = it.next();
+			String text = entry.getTitleText();
+			char last = text.charAt(text.length()-1);
+			if(last == '.' || last == '*' || last == '■') {
+				entry.setTitleText(text.substring(0, text.length()-1));
 			}
 		}
 	}
@@ -596,43 +651,33 @@ public class TableOfContentsExtractor {
 	private static void tocInvalidCharCleaning(Line line){
 
 		String title;
-
-		for(int i = 0; i < line.size(); i++){
-			
+		boolean firstActualWord = false;
+		for(int i = 0; i < line.size(); i++){		
 			title= line.getWordAt(i).getText();
 			title = title.replaceAll("[?/|:*\"\\<>%(){}=∈]��", "");
-
+			
 			//A whitespace character || A non-word character
 			if(title.matches("^[\\s|\\W]")){
-
+				//System.out.println(i + " title: " + title);
+				float startX = line.getWordAt(i).getStartPositionX();
 				line.removeWordAt(i);
 				i--;
-				//SystemLogger.getInstance().log("^#1: ");
+				if(!firstActualWord) { 
+					short newI = i < 0 ? 0 : (short)i;
+					if(line.getWordAt(newI) != null) 
+						line.getWordAt(newI).setStartPositionX(startX);
+					
+				}
 			}
-			//
 			else if(title.matches(".*[.][.]+")){
-
+				//System.out.println(i + " title: " + title);
 				title = title.replaceAll("[.][.]+", "");
 				line.getWordAt(i).setText(title);
-				//SystemLogger.getInstance().log("^#2: " + title);
-			}
-			//A word with dots follow by a number: Word......89
-			else if(title.matches("(.*[.][.]+[0-9]+)|(.*[-][-]+[0-9]+)|(.*[–][–]+[0-9]+)")){
-//				String word = title.substring(0, title.indexOf('.'));
-//				String number = title.substring(title.lastIndexOf(".") + 1);
-//				line.getWordAt(i).setText(word);
-//				line.addWord(new Text(number));
-//				SystemLogger.getInstance().log("^#3: ");
-//				SystemLogger.getInstance().log(">>>word: " + word);
-//				SystemLogger.getInstance().log(">>>number "+ number);
-			//A word with a last dot
-			} else if(title.matches("^.*[.]")) {
-				//title = title.replaceAll("[.]", "");
-				//line.getWordAt(i).setText(title);
-				//SystemLogger.getInstance().log("^#4: " + title);
-			
-			} else
+			} else {
 				line.getWordAt(i).setText(title);
+				firstActualWord = true;
+			}
+				
 		}
 
 		line.extractText();
@@ -677,14 +722,14 @@ public class TableOfContentsExtractor {
 		String text = line.getLastWordText();
 
 		if(text.matches("(.*[.][.]+[0-9]+)|(.*[-][-]+[0-9]+)|(.*[–][–]+[0-9]+)|(.*[\\s][.\\s]+[\\s]*[0-9]+)|(.*[\\s][.\\s]+[\\s]*[IVXMivxm]+)|(.*[.][.]+[IVXMivxm]+)|(.*[-][-]+[IVXMivxm]+)")){
-//			/*TESTING*/
-//			SystemLogger.getInstance().log("1111 TOC dashFillFix line: " + line.getText());
-//			SystemLogger.getInstance().log("************* BEFORE");
-//			for(Text w: line.getWords()) {
-//				SystemLogger.getInstance().log("T: " + w.getText() + " SX: " + w.getStartPositionX() + " EX: " + w.getEndPositionX() + " Y: " + w.getPositionY());
-//			}
-//			SystemLogger.getInstance().log("-----------");
-//			/*TESTING*/
+			/*TESTING*/
+			SystemLogger.getInstance().log("1111 TOC dashFillFix line: " + line.getText());
+			SystemLogger.getInstance().log("************* BEFORE");
+			for(Text w: line.getWords()) {
+				SystemLogger.getInstance().log("T: " + w.getText() + " SX: " + w.getStartPositionX() + " EX: " + w.getEndPositionX() + " Y: " + w.getPositionY());
+			}
+			SystemLogger.getInstance().log("-----------");
+			/*TESTING*/
 
 			Text lastWord = line.getWordAt(line.size() - 1);
 			byte length = (byte) text.length();
@@ -696,9 +741,7 @@ public class TableOfContentsExtractor {
 
 			temp2 = temp1.substring(temp1.lastIndexOf(" ")+1).trim();
 			temp1 = temp1.substring(0, temp1.lastIndexOf(" ")).trim();	
-			
-		
-		
+				
 			//create new words
 			float singleWidth = lastWord.getWidth() / text.length();
 			Text tmp = new Text(temp1,lastWord.getFontSize(),lastWord.getStartPositionX() , lastWord.getPositionY(), line.getCoordinates()); 
@@ -723,13 +766,13 @@ public class TableOfContentsExtractor {
 			tmp2.setFontName(lastWord.getFontName());
 			tmp.setFontColor(lastWord.getFontColor());
 			
-//			/*TESTING*/
-//			SystemLogger.getInstance().log("> temp1 original: " + temp1 + " size: " + temp1.length());
-//			SystemLogger.getInstance().log("> temp2 original: " + temp2 + " size: " + temp2.length());
-//			SystemLogger.getInstance().log("> before:  " +line.getEndPositionX());
-//			SystemLogger.getInstance().log("> W1: " +tmp.getText() + " S: " + tmp.getStartPositionX() + " End: " + tmp.getEndPositionX());
-//			SystemLogger.getInstance().log("> W1: " +tmp2.getText() + " S: " + tmp2.getStartPositionX() + " End: " + tmp2.getEndPositionX());
-//			/*TESTING*/
+			/*TESTING*/
+			SystemLogger.getInstance().log("> temp1 original: " + temp1 + " size: " + temp1.length());
+			SystemLogger.getInstance().log("> temp2 original: " + temp2 + " size: " + temp2.length());
+			SystemLogger.getInstance().log("> before:  " +line.getEndPositionX());
+			SystemLogger.getInstance().log("> W1: " +tmp.getText() + " S: " + tmp.getStartPositionX() + " End: " + tmp.getEndPositionX());
+			SystemLogger.getInstance().log("> W1: " +tmp2.getText() + " S: " + tmp2.getStartPositionX() + " End: " + tmp2.getEndPositionX());
+			/*TESTING*/
 
 			//update line
 			int in = line.size() - 1;
@@ -747,8 +790,9 @@ public class TableOfContentsExtractor {
 //				SystemLogger.getInstance().log("T: " + w.getText() + " SX: " + w.getStartPositionX() + " EX: " + w.getEndPositionX() + " Y: " + w.getPositionY() + " FS: " + w.getFontSize());
 //			}
 //			SystemLogger.getInstance().log("-----------");
+//			System.exit(0);
 //			/*TESTING*/
-			//System.exit(0);
+			
 		} else {
 			
 //			/*TESTING*/
@@ -1152,19 +1196,44 @@ public class TableOfContentsExtractor {
 			}
 		}
 		
-		/*TESTING*/
-		SystemLogger.getInstance().debug(">>>>>>>>> lineDiff 1");
-		for(Integer k: lineDiff.keySet()) {
-			SystemLogger.getInstance().debug("K: " + k + " v: " +lineDiff.get(k));
+		boolean allSameLineSpacing = true;
+		int value = -1;
+		NEXTDIFF:
+		for(int k: lineDiff.keySet()) {
+			for(int v : lineDiff.get(k)) {
+				if(value == -1) {
+					value  = v;
+				} else {
+					if(value != v) {
+						allSameLineSpacing = false;
+						break NEXTDIFF;
+					}
+				}
+			}
 		}
-		SystemLogger.getInstance().debug(">>>>>>>>>>> lineDiff 2");
-		for(Integer k: lineDiffTogether.keySet()) {
-			SystemLogger.getInstance().debug("K: " + k + " v: " +lineDiffTogether.get(k));
-		}
-		//System.exit(0);
-		/*TESTING*/
+		
+//		/*TESTING*/
+//		SystemLogger.getInstance().debug(">>>>>>>>> lineDiff 1");
+//		for(Integer k: lineDiff.keySet()) {
+//			SystemLogger.getInstance().debug("K: " + k + " v: " +lineDiff.get(k));
+//		}
+//		SystemLogger.getInstance().debug(">>>>>>>>>>> lineDiff 2");
+//		for(Integer k: lineDiffTogether.keySet()) {
+//			SystemLogger.getInstance().debug("K: " + k + " v: " +lineDiffTogether.get(k));
+//		}
+//		SystemLogger.getInstance().debug("allSameLineSpacing: " + allSameLineSpacing);
+//		System.exit(0);
+//		/*TESTING*/
+		
+//		/*TESTING*/
+//		for(short i = 0 ; i<toc.size() ; i++) {
+//			System.out.println("TOC: " + toc.get(i).getText());
+//		}
+//		System.exit(0);
+//		/*TESTING*/
 		
 		//first: delete all lines with Roman numbers: after normal number, stop
+		int lastLineIndex = -1;
 		for(short i = 0 ; i<toc.size()-1 ; i++) {
 			if(StringUtils.isNumeric(toc.get(i).getWordAt(toc.get(i).size()-1).getText())){
 				break;
@@ -1174,14 +1243,35 @@ public class TableOfContentsExtractor {
 				String tok = tokenizer.nextToken();
 				if(!tokenizer.hasMoreElements()) {
 					if(tok.toUpperCase().trim().matches(regexRomanNumber)) {
-						toc.remove(i);
-						i--;
+						lastLineIndex = i;
 						break;
 					}
 				}
 		    }
 		}
 		
+		while(lastLineIndex >= 0) {
+			toc.remove(0);
+			lastLineIndex--;
+		}
+		
+		//second: delete lines with only one word and that is a roman number
+		for(short i = 0 ; i<toc.size()-1 ; i++) {
+			if(toc.get(i).getWords().size() == 1) {
+				String word = toc.get(i).getWords().get(0).getText();
+				if(word.toUpperCase().trim().matches(regexRomanNumber)) {
+					toc.remove(i);
+					i--;
+				}
+			}
+		}
+		
+//		/*TESTING*/
+//		for(short i = 0 ; i<toc.size()-1 ; i++) {
+//			System.out.println("TOC: " + toc.get(i).getText());
+//		}
+//		System.exit(0);
+//		/*TESTING*/
 		
 		//second: concat lines
 		NEXTLINE:
@@ -1205,7 +1295,6 @@ public class TableOfContentsExtractor {
 					} else if (i > 0) {
 						diffYCoordinatePredecessor = Math.round(toc.get(i).getPositionY() - toc.get(i-1).getConcatenatedPositionY());
 					} 
-					//int diffYCoordinatePredecessor = i > 0 ? Math.round(toc.get(i).getPositionY() - previouspositionY) : 0;
 					
 					SystemLogger.getInstance().debug("?? PART: " + toc.get(i).getText());
 					SystemLogger.getInstance().debug("tdiffYCoordinatePredecessor >= (fontBiggetsSpace - 1)) : " + (diffYCoordinatePredecessor >= (fontBiggetsSpace - 1)));
@@ -1253,8 +1342,9 @@ public class TableOfContentsExtractor {
 						//Next line is complete:
 						if(!lineIsIncomplete(toc.get(i+1), endPositions)) {
 							next = false;
+							
 							//if next line is too far away, don't concatenate: Parts of TOC
-							if(diffYCoordinate >= (fontBiggetsSpace - 1) ) {
+							if(diffYCoordinate >= (fontBiggetsSpace - 1) && !allSameLineSpacing ) {
 								System.out.println("diffYCoordinate: " + diffYCoordinate);
 								System.out.println(" (fontBiggetsSpace - 1): " +  (fontBiggetsSpace - 1));
 								System.out.println("Reson 1");
@@ -1269,43 +1359,7 @@ public class TableOfContentsExtractor {
 						toc.remove(i+1);
 					}
 				}	
-			}
-//			else if(i > 0){
-//				
-//				float currentlineX = toc.get(i).getWordAt(toc.get(i).size()-1).getStartPositionX();
-//				float priorlineX = toc.get(i-1).getWordAt(toc.get(i-1).size()-1).getStartPositionX();
-//				float rangeSetter1 = toc.get(i).getWordAt(toc.get(i).size()-1).getFontSize();
-//				float rangeSetter2 = toc.get(i-1).getWordAt(toc.get(i-1).size()-1).getFontSize();
-//				//case 2: before: was concatenating the last TOC entry of a page wit the first TOC entry of next page
-//				//after: second validation-> if current line does not end in a number, but the next one does, concatenate
-//				if(!BoundSimilarity.isInBound(currentlineX, priorlineX, rangeSetter1, rangeSetter2, 0.9f)){
-//
-//					boolean currentLineIncomplete = lineIsIncomplete(toc.get(i), endPositions);
-//					boolean nextLineComplete = toc.get(i+1) != null ? !lineIsIncomplete(toc.get(i+1), endPositions) : false;
-//					
-//					if(currentLineIncomplete && nextLineComplete) {
-//					
-////						/*TESTING*/
-////						System.out.println("$Concat");
-////						System.out.println("$$Case 2: " + toc.get(i).getText());
-//////						System.out.println("$$currentlineX: " + currentlineX);
-//////						System.out.println("$$priorlineX: " + priorlineX);
-//////						System.out.println("$$rangeSetter1: " + rangeSetter1);
-//////						System.out.println("$$rangeSetter2: " + rangeSetter2);
-////						/*TESTING*/
-//							
-//					toc.get(i).addWords(toc.get(i+1).getWords());
-//
-//					toc.get(i).extractText();
-//					
-////						/*TESTING*/
-////						System.out.println("$$After: " + toc.get(i).getText());
-////						/*TESTING*/
-//
-//					toc.remove(i+1);
-//					}
-//				}
-//			}
+			} 
 		}
 		
 		//toc line content incomplete
