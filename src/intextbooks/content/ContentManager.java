@@ -32,7 +32,6 @@ import intextbooks.content.models.formatting.CoordinatesContainer;
 import intextbooks.content.models.formatting.FormattingContainer;
 import intextbooks.content.models.formatting.FormattingDictionary;
 import intextbooks.content.models.formatting.PageMetadataEnum;
-import intextbooks.content.models.formatting.lists.ListingContainer;
 import intextbooks.content.utilities.ConceptContainer;
 import intextbooks.exceptions.BookWithoutPageNumbersException;
 import intextbooks.exceptions.BookWithoutTextPagesException;
@@ -1180,31 +1179,6 @@ public class ContentManager {
 		else
 			return Pair.of(new ArrayList<Pair<String,Integer>>(), new ArrayList<Pair<String,Integer>>());
 	}
-
-
-	/*********************************************************************
-	 ********************** LISTING METHODS  *****************************
-	 *********************************************************************/
-
-	public void addListing(String bookID, ListingContainer listing) {
-		if(this.content.containsKey(bookID))
-			this.content.get(bookID).addListing(listing);
-	}
-
-	public ArrayList<ListingContainer> getListingsInSegment(String bookID, int segmentID) {
-		if(this.content.containsKey(bookID))
-			return this.content.get(bookID).getListingsInSegment(segmentID);
-		else
-			return new ArrayList<ListingContainer>();
-	}
-
-	public ArrayList<ListingContainer> getListingsOnPage(String bookID, int pageIndex) {
-		if(this.content.containsKey(bookID))
-			return this.content.get(bookID).getListingsOnPage(pageIndex);
-		else
-			return new ArrayList<ListingContainer>();
-	}
-
 
 	/***
 	 * DEBUG ONLY

@@ -33,7 +33,6 @@ import intextbooks.content.ContentManager;
 import intextbooks.content.extraction.buildingBlocks.structure.IndexElement;
 import intextbooks.content.models.BookStatus;
 import intextbooks.content.models.formatting.CoordinatesContainer;
-import intextbooks.content.models.formatting.lists.ListingContainer;
 import intextbooks.ontologie.LanguageEnum;
 
 public class Database {
@@ -794,92 +793,6 @@ public class Database {
 			 try { if (conn != null) conn.close(); } catch (Exception e) {};
 		}
 		
-	}
-	
-	synchronized public void addListing(String bookID, ListingContainer listing) {		
-		try {
-			
-			conn = getConnectionFromPool();
-			preStmt = conn.prepareStatement("INSERT INTO "+bookID+"_listingMap VALUES(?,?,?,?,?,?)");
-			preStmt.setInt(1, listing.getListID());
-			preStmt.setInt(2, listing.getListingID());
-			preStmt.setInt(3, listing.getPageIndex());
-			preStmt.setInt(4, listing.getSegmentID());
-			preStmt.setDouble(5, listing.getTopY());
-			preStmt.setDouble(6, listing.getBottomY());
-			
-			preStmt.executeUpdate();
-			
-		} catch (SQLException e) {
-			e.printStackTrace();
-			logger.log(e.toString());
-		} finally{
-			 try { if (preStmt != null) preStmt.close(); } catch (Exception e) {};
-			 try { if (conn != null) conn.close(); } catch (Exception e) {};
-		}
-		
-	}
-	
-	synchronized public ArrayList<ListingContainer> getListingsInSegment(String bookID, int segmentID) {
-		ArrayList<ListingContainer> result = new ArrayList<ListingContainer>();
-		try {
-			conn = getConnectionFromPool();
-			preStmt = conn.prepareStatement("SELECT * FROM "+bookID+"_listingMap WHERE segmentID = ?");
-			preStmt.setInt(1, segmentID);
-			ResultSet res = preStmt.executeQuery();
-	
-			while(res.next()) {
-				
-				int listID = res.getInt("listID");
-				int listingID = res.getInt("listingID");
-				int pageIndex = res.getInt("pageIndex");
-				double topY = res.getDouble("topY");
-				double bottomY = res.getDouble("bottomY");
-				
-				result.add(new ListingContainer(listID, listingID, pageIndex, segmentID, topY, bottomY));
-				
-			}
-			
-		} catch (SQLException e) {
-			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
-			return new ArrayList<ListingContainer>();
-		}finally{
-			 try { if (preStmt != null) preStmt.close(); } catch (Exception e) {};
-			 try { if (conn != null) conn.close(); } catch (Exception e) {};
-		}	
-		
-		return result;
-	}
-	
-	synchronized public ArrayList<ListingContainer> getListingsOnPage(String bookID, int pageIndex) {
-		ArrayList<ListingContainer> result = new ArrayList<ListingContainer>();
-		try {
-			conn = getConnectionFromPool();
-			preStmt = conn.prepareStatement("SELECT * FROM "+bookID+"_listingMap WHERE pageIndex = ?");
-			preStmt.setInt(1, pageIndex);
-			ResultSet res = preStmt.executeQuery();
-	
-			while(res.next()) {
-				
-				int listID = res.getInt("listID");
-				int listingID = res.getInt("listingID");
-				int segmentID = res.getInt("segmentID");
-				double topY = res.getDouble("topY");
-				double bottomY = res.getDouble("bottomY");
-				
-				result.add(new ListingContainer(listID, listingID, pageIndex, segmentID, topY, bottomY));
-				
-			}
-			
-		} catch (SQLException e) {
-			e.printStackTrace();SystemLogger.getInstance().log(e.toString()); 
-			return new ArrayList<ListingContainer>();
-		}finally{
-			 try { if (preStmt != null) preStmt.close(); } catch (Exception e) {};
-			 try { if (conn != null) conn.close(); } catch (Exception e) {};
-		}	
-		
-		return result;
 	}
 	
 	synchronized public void addIndexElement(String bookID, String indexName,List<Integer> segments, List<Integer> indices, List<Integer> pages, boolean artificial){

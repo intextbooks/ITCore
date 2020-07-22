@@ -24,8 +24,6 @@ import intextbooks.content.models.formatting.FormatModel;
 import intextbooks.content.models.formatting.FormattingContainer;
 import intextbooks.content.models.formatting.FormattingDictionary;
 import intextbooks.content.models.formatting.PageMetadataEnum;
-import intextbooks.content.models.formatting.lists.ListingContainer;
-import intextbooks.content.models.formatting.lists.ListingModel;
 import intextbooks.content.models.structure.Segment;
 import intextbooks.content.models.structure.StructureModel;
 import intextbooks.ontologie.LanguageEnum;
@@ -34,7 +32,6 @@ import intextbooks.persistence.Disc;
 public class Book {
 	private FormatModel formatModel;
 	private StructureModel structureModel;
-	private ListingModel listingModel;
 	private String bookID; 
 	private LanguageEnum language;
 	private String fileName;
@@ -470,29 +467,6 @@ public class Book {
 	
 	public File getParagraphText(int index) {
 		return this.structureModel.getParagraphText(index);
-	}
-	
-	/*********************************************************************
-	 ********************** SEMANTIC METHODS 
-	  ***************************
-	 *********************************************************************/
-	
-
-	/*********************************************************************
-	 ********************** LISTING METHODS 
-	  ***************************
-	 *********************************************************************/
-	
-	public void addListing(ListingContainer listing) {
-		this.listingModel.addListing(listing);
-	}
-	
-	public ArrayList<ListingContainer> getListingsInSegment(int segmentID) {
-		return this.listingModel.getListingsInSegment(segmentID);
-	}
-	
-	public ArrayList<ListingContainer> getListingsOnPage(int pageIndex) {
-		return this.listingModel.getListingsOnPage(pageIndex);
 	}
 	
 	public FormattingDictionary getStyleLibrary() {

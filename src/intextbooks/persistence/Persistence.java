@@ -68,7 +68,6 @@ import intextbooks.content.models.formatting.FormattingDictionary;
 import intextbooks.content.models.formatting.Page;
 import intextbooks.content.models.formatting.PageMetadata;
 import intextbooks.content.models.formatting.PageMetadataEnum;
-import intextbooks.content.models.formatting.lists.ListingContainer;
 import intextbooks.content.models.structure.Segment;
 import intextbooks.ontologie.LanguageEnum;
 
@@ -172,18 +171,6 @@ public class Persistence {
 	
 	public void createListingMap(String parentBook) throws SQLException{
 		db.createListingMap(parentBook);
-	}
-	
-	public void addListing(String bookID, ListingContainer listing) throws SQLException {
-		db.addListing(bookID, listing);
-	}
-	
-	public ArrayList<ListingContainer> getListingsInSegment(String bookID, int segmentID) throws SQLException {
-		return db.getListingsInSegment(bookID, segmentID);
-	}
-	
-	public ArrayList<ListingContainer> getListingsOnPage(String bookID, int pageIndex) throws SQLException {
-		return db.getListingsOnPage(bookID, pageIndex);
 	}
 	
 	public void addIndex(String bookID, String indexName, List<Integer> segments, ArrayList<Integer> indices) throws SQLException {
